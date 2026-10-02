@@ -26,7 +26,7 @@ paths:
       tags: [system]
       operationId: getHealth
       summary: ヘルスチェック
-      description: APIサーバーが起動しているかを確認します。
+      description: APIサーバーが起動していて、DBに接続できるかを確認します。
       security: []
       responses:
         "200":
@@ -35,6 +35,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+              example:
+                status: ok
+        "503":
+          description: DBに接続できない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+              example:
+                status: unavailable
 
   /auth/signup:
     post:
@@ -181,6 +191,7 @@ components:
       properties:
         status:
           type: string
+          enum: [ok, unavailable]
           example: ok
 
     Credentials:
