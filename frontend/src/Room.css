@@ -90,6 +90,7 @@
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
+  max-width: min(340px, calc(100vw - 32px));
   animation: note-in 0.2s ease-out;
 }
 @keyframes note-in {

@@ -1,9 +1,20 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as THREE from "three";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
-import { moveFurniture, selectFurnitureOffset, selectIsEditingLayout, type FurnitureId } from "./roomLayoutSlice";
+import { FURNITURE } from "./catalog";
+import {
+  moveFurniture,
+  selectFurniture,
+  selectFurnitureOffset,
+  selectIsEditingLayout,
+  selectIsPlaced,
+  selectSelectedFurniture,
+  storeFurniture,
+  type FurnitureId,
+} from "./roomLayoutSlice";
 
 /** 家具を置ける床の範囲（奥と左は壁・巾木の手前まで） */
 const FLOOR = { min: -2.92, max: 2.98 };
@@ -27,17 +38,29 @@ function measureMeshes(root: THREE.Object3D) {
 }
 
 /**
+ * 家具をバッグに出し入れできるようにする。バッグの中にあるときは何も描かない
+ */
+export default function Draggable({ id, children }: { id: FurnitureId; children: ReactNode }) {
+  const placed = useAppSelector((s) => selectIsPlaced(s, id));
+  if (!placed) return null;
+  return <PlacedFurniture id={id}>{children}</PlacedFurniture>;
+}
+
+/**
  * 中身をまとめてドラッグで床の上を動かせるようにする。
  * - ドラッグ中は three.js のオブジェクトを直接動かし（毎フレーム再描画しない）、
  *   離したときだけ Redux に位置を保存する
  * - ドラッグ中はカメラの回転（OrbitControls）を止める
- * - 模様替えモードのときだけ動かせる
+ * - 模様替えモードのときだけ動かせる。クリックして選ぶと、上に「しまう」ボタンが出る
  */
-export default function Draggable({ id, children }: { id: FurnitureId; children: ReactNode }) {
+function PlacedFurniture({ id, children }: { id: FurnitureId; children: ReactNode }) {
   const ref = useRef<THREE.Group>(null);
   const offset = useAppSelector((s) => selectFurnitureOffset(s, id));
   const editing = useAppSelector(selectIsEditingLayout);
+  const selected = useAppSelector((s) => selectSelectedFurniture(s) === id);
   const dispatch = useAppDispatch();
+  /** 「しまう」ボタンを出す位置（家具のてっぺんの少し上。グループ内の座標） */
+  const [bubbleAt, setBubbleAt] = useState<[number, number, number] | null>(null);
   const get = useThree((s) => s.get);
   const hovered = useRef(false);
   const dragging = useRef(false);
@@ -50,6 +73,7 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
 
   // 画面から消えるときにドラッグ中なら後片付け
   useEffect(() => () => stopDrag.current?.(), []);
+
 
   // 模様替えモードを終えたら、ホバーやドラッグの状態を元に戻す
   useEffect(() => {
@@ -73,6 +97,7 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.button !== 0 || !ref.current) return;
     e.stopPropagation();
+    dispatch(selectFurniture(id));
 
     const group = ref.current;
     const { camera, gl } = get();
@@ -94,6 +119,9 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
     // 家具がはみ出さずに動ける範囲。今いる位置は必ず範囲に含める
     const from = { x: group.position.x, z: group.position.z };
     const box = measureMeshes(group);
+    // 「しまう」ボタンは家具のてっぺんの少し上に出す（グループ内の座標なので、動かしてもついてくる）
+    const center = box.getCenter(new THREE.Vector3());
+    setBubbleAt([center.x - from.x, box.max.y - group.position.y + 0.25, center.z - from.z]);
     const range = {
       minX: Math.min(from.x, FLOOR.min - (box.min.x - from.x)),
       maxX: Math.max(from.x, FLOOR.max - (box.max.x - from.x)),
@@ -156,6 +184,18 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
       onPointerOut={editing ? () => setHovered(false) : undefined}
     >
       {children}
+      {editing && selected && bubbleAt && (
+        <Html position={bubbleAt} center zIndexRange={[15, 6]}>
+          <button
+            type="button"
+            className="store-bubble"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => dispatch(storeFurniture(id))}
+          >
+            {FURNITURE[id].icon} しまう
+          </button>
+        </Html>
+      )}
     </group>
   );
 }

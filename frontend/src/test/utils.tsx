@@ -19,7 +19,7 @@ export function jsonResponse(status: number, body?: unknown): Response {
   })
 }
 
-type Route = `${'GET' | 'POST'} ${string}`
+type Route = `${'GET' | 'POST' | 'PUT'} ${string}`
 
 /**
  * fetch を差し替えて、「メソッド + パス」ごとに決めたレスポンスを返す。

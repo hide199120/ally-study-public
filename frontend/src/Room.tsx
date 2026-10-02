@@ -3,11 +3,17 @@ import type { ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
+import { useAppDispatch, useAppSelector } from "./app/hooks";
 import Draggable from "./features/room/Draggable";
 import LayoutToolbar from "./features/room/LayoutToolbar";
+import { selectAvatar, selectFurniture, selectIsPlaced, selectWallpaper } from "./features/room/roomLayoutSlice";
+import { useRoomSync } from "./features/room/useRoomSync";
+import { Beanbag, Bookshelf, Cactus, Fishbowl, FloorLamp, Guitar, LowTable, Sofa } from "./features/room/models/NewFurniture";
+import Resident from "./features/room/models/Resident";
+import { Glow, ShadowGroup } from "./features/room/models/shared";
+import { makeTexture, type V3 } from "./features/room/models/utils";
+import { getWallpaper } from "./features/room/models/wallpapers";
 import "./Room.css";
-
-type V3 = [number, number, number];
 
 /* =====================================================
    部屋の寸法
@@ -18,75 +24,14 @@ const WALL_T = 0.18;
 const WIN = { cx: 1.3, w: 1.0, bottom: 0.95, spring: 2.35 }; // 奥の壁のアーチ窓
 
 const C = {
-  skin: "#f7d2b0",
-  hair: "#6b3f24",
   wood: "#c9915a",
   woodDark: "#8f5f35",
   cream: "#f3e8cc",
-  green: "#9cc472",
   leaf1: "#5f9d57",
   leaf2: "#76b565",
   leaf3: "#4f8a4c",
   terracotta: "#d98b5f",
 };
-
-/* =====================================================
-   ユーティリティ
-   ===================================================== */
-function makeTexture(w: number, h: number, draw: (g: CanvasRenderingContext2D, w: number, h: number) => void) {
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  draw(c.getContext("2d")!, w, h);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
-  return t;
-}
-
-const easeInOut = (k: number) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
-
-/** 中の全メッシュに影を付ける */
-function ShadowGroup({ children }: { children: ReactNode }) {
-  const ref = useRef<THREE.Group>(null);
-  useEffect(() => {
-    ref.current?.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (m.isMesh) {
-        m.castShadow = true;
-        m.receiveShadow = true;
-      }
-    });
-  }, []);
-  return <group ref={ref}>{children}</group>;
-}
-
-/** 2点を結ぶカプセル（腕など） */
-function Limb({ a, b, r, color }: { a: V3; b: V3; r: number; color: string }) {
-  const { pos, quat, len } = useMemo(() => {
-    const va = new THREE.Vector3(...a);
-    const vb = new THREE.Vector3(...b);
-    const dir = vb.clone().sub(va);
-    const length = dir.length();
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
-    return { pos: va.clone().add(vb).multiplyScalar(0.5), quat: q, len: length };
-  }, [a, b]);
-  return (
-    <mesh position={pos} quaternion={quat}>
-      <capsuleGeometry args={[r, Math.max(len - r * 2, 0.001), 6, 14]} />
-      <meshStandardMaterial color={color} roughness={0.85} />
-    </mesh>
-  );
-}
-
-/** 光のにじみ（加算合成のスプライト） */
-function Glow({ position, color, size, opacity = 0.8, map }: { position: V3; color: string; size: number; opacity?: number; map: THREE.Texture }) {
-  return (
-    <sprite position={position} scale={[size, size, 1]}>
-      <spriteMaterial map={map} color={color} transparent opacity={opacity} depthWrite={false} blending={THREE.AdditiveBlending} />
-    </sprite>
-  );
-}
 
 /* =====================================================
    テクスチャ（Canvasで生成）
@@ -405,162 +350,10 @@ function Cat({ position, tex }: { position: V3; tex: Tex }) {
 }
 
 /* =====================================================
-   本を読む女の子
-   ===================================================== */
-function Girl({ position }: { position: V3 }) {
-  const chest = useRef<THREE.Group>(null);
-  const head = useRef<THREE.Group>(null);
-  const tail = useRef<THREE.Group>(null);
-  const eyeL = useRef<THREE.Mesh>(null);
-  const eyeR = useRef<THREE.Mesh>(null);
-  const page = useRef<THREE.Group>(null);
-
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
-    if (chest.current) chest.current.scale.set(1, 1 + Math.sin(t * 1.6) * 0.014, 1 + Math.sin(t * 1.6) * 0.01);
-    if (head.current) {
-      head.current.rotation.x = 0.3 + Math.sin(t * 0.7) * 0.03;
-      head.current.rotation.y = Math.sin(t * 0.4) * 0.09;
-    }
-    if (tail.current) {
-      tail.current.rotation.z = Math.sin(t * 2.1) * 0.12;
-      tail.current.rotation.x = Math.sin(t * 1.7) * 0.06;
-    }
-    const b = t % 4.2 > 4.08 ? 0.12 : 1;
-    if (eyeL.current) eyeL.current.scale.y = b;
-    if (eyeR.current) eyeR.current.scale.y = b;
-    if (page.current) {
-      const ph = (t % 9) / 9;
-      if (ph > 0.7 && ph < 0.8) {
-        page.current.visible = true;
-        page.current.rotation.z = Math.PI * easeInOut((ph - 0.7) / 0.1);
-      } else page.current.visible = false;
-    }
-  });
-
-  const shoulderL: V3 = [-0.21, 0.58, 0];
-  const shoulderR: V3 = [0.21, 0.58, 0];
-  const elbowL: V3 = [-0.29, 0.36, 0.1];
-  const elbowR: V3 = [0.29, 0.36, 0.1];
-  const handL: V3 = [-0.2, 0.34, 0.36];
-  const handR: V3 = [0.2, 0.34, 0.36];
-
-  return (
-    <group position={position} scale={1.25}>
-      <ShadowGroup>
-        {/* 脚（あぐら） */}
-        <mesh position={[0, 0.1, 0.17]} scale={[0.42, 0.13, 0.27]}>
-          <sphereGeometry args={[1, 24, 24]} />
-          <meshStandardMaterial color="#e9dcc4" roughness={0.9} />
-        </mesh>
-        {[-0.2, 0.2].map((x) => (
-          <mesh key={x} position={[x, 0.07, 0.4]} scale={[0.09, 0.055, 0.12]}>
-            <sphereGeometry args={[1, 14, 14]} />
-            <meshStandardMaterial color="#f8f1e2" />
-          </mesh>
-        ))}
-
-        {/* 胴体 */}
-        <group ref={chest} position={[0, 0.1, 0]} rotation={[-0.1, 0, 0]}>
-          <mesh position={[0, 0.3, 0]} scale={[1, 1, 0.78]}>
-            <capsuleGeometry args={[0.2, 0.28, 8, 18]} />
-            <meshStandardMaterial color={C.green} roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 0.6, 0.01]}>
-            <cylinderGeometry args={[0.055, 0.06, 0.1, 14]} />
-            <meshStandardMaterial color={C.skin} roughness={0.8} />
-          </mesh>
-        </group>
-
-        {/* 腕 */}
-        <Limb a={shoulderL} b={elbowL} r={0.055} color={C.green} />
-        <Limb a={elbowL} b={handL} r={0.05} color={C.green} />
-        <Limb a={shoulderR} b={elbowR} r={0.055} color={C.green} />
-        <Limb a={elbowR} b={handR} r={0.05} color={C.green} />
-        {[handL, handR].map((h, i) => (
-          <mesh key={i} position={h}>
-            <sphereGeometry args={[0.05, 14, 14]} />
-            <meshStandardMaterial color={C.skin} roughness={0.8} />
-          </mesh>
-        ))}
-
-        {/* 本 */}
-        <group position={[0, 0.34, 0.36]} rotation={[-0.55, 0, 0]}>
-          <mesh>
-            <boxGeometry args={[0.54, 0.02, 0.36]} />
-            <meshStandardMaterial color="#3f6f6a" roughness={0.8} />
-          </mesh>
-          {[-1, 1].map((s) => (
-            <mesh key={s} position={[s * 0.131, 0.02, 0]}>
-              <boxGeometry args={[0.255, 0.026, 0.33]} />
-              <meshStandardMaterial color="#fffaf0" roughness={0.9} />
-            </mesh>
-          ))}
-          <group ref={page} position={[0, 0.036, 0]} visible={false}>
-            <mesh position={[0.125, 0, 0]}>
-              <boxGeometry args={[0.25, 0.004, 0.32]} />
-              <meshStandardMaterial color="#fffdf3" roughness={0.9} />
-            </mesh>
-          </group>
-        </group>
-
-        {/* 頭 */}
-        <group ref={head} position={[0, 0.84, 0.02]}>
-          <mesh scale={[1, 1.06, 1]}>
-            <sphereGeometry args={[0.17, 32, 32]} />
-            <meshStandardMaterial color={C.skin} roughness={0.75} />
-          </mesh>
-          {/* 髪 */}
-          <mesh position={[0, 0.015, -0.035]}>
-            <sphereGeometry args={[0.18, 32, 32]} />
-            <meshStandardMaterial color={C.hair} roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.035, 0.0]} rotation={[-0.02, 0, 0]}>
-            <sphereGeometry args={[0.18, 32, 20, 0, Math.PI * 2, 0, Math.PI * 0.4]} />
-            <meshStandardMaterial color={C.hair} roughness={0.8} />
-          </mesh>
-          {[-0.17, 0.17].map((x) => (
-            <mesh key={x} position={[x, -0.01, 0]}>
-              <sphereGeometry args={[0.033, 12, 12]} />
-              <meshStandardMaterial color={C.skin} />
-            </mesh>
-          ))}
-          {/* ポニーテール */}
-          <group ref={tail} position={[0, 0.07, -0.17]}>
-            <mesh position={[0, -0.03, -0.04]} rotation={[0.5, 0, 0]}>
-              <capsuleGeometry args={[0.055, 0.2, 6, 14]} />
-              <meshStandardMaterial color={C.hair} roughness={0.8} />
-            </mesh>
-            <mesh>
-              <torusGeometry args={[0.04, 0.012, 8, 16]} />
-              <meshStandardMaterial color="#e07a5f" />
-            </mesh>
-          </group>
-          {/* 顔 */}
-          <mesh ref={eyeL} position={[-0.062, -0.012, 0.153]} scale={[1, 1.4, 0.6]}>
-            <sphereGeometry args={[0.017, 12, 12]} />
-            <meshStandardMaterial color="#2a1a10" roughness={0.3} />
-          </mesh>
-          <mesh ref={eyeR} position={[0.062, -0.012, 0.153]} scale={[1, 1.4, 0.6]}>
-            <sphereGeometry args={[0.017, 12, 12]} />
-            <meshStandardMaterial color="#2a1a10" roughness={0.3} />
-          </mesh>
-          {[-0.1, 0.1].map((x) => (
-            <mesh key={x} position={[x, -0.06, 0.13]} scale={[1.2, 0.7, 0.4]}>
-              <sphereGeometry args={[0.027, 12, 12]} />
-              <meshStandardMaterial color="#f6a79b" transparent opacity={0.65} />
-            </mesh>
-          ))}
-        </group>
-      </ShadowGroup>
-    </group>
-  );
-}
-
-/* =====================================================
    家具
    ===================================================== */
-function Bed() {
+/** ベッド。children には上に乗る住人を渡す */
+function Bed({ children }: { children?: ReactNode }) {
   return (
     <group>
       <ShadowGroup>
@@ -613,7 +406,7 @@ function Bed() {
         <Bear position={[0.95, 0.73, -1.35]} color="#e6b98a" scale={1.1} rotY={0.1} />
         <Bear position={[0.3, 0.73, -1.28]} color="#cfa27f" scale={0.85} rotY={0.9} />
       </ShadowGroup>
-      <Girl position={[1.45, 0.73, -2.38]} />
+      {children}
     </group>
   );
 }
@@ -951,6 +744,7 @@ function Outside({ tex, portal }: { tex: Tex; portal: THREE.BufferGeometry }) {
 
 /** 壁（アーチ窓の穴付き）と窓枠 */
 function Walls({ tex }: { tex: Tex }) {
+  const wallpaper = getWallpaper(useAppSelector(selectWallpaper));
   const { backGeo, leftGeo, frameGeo, portalGeo } = useMemo(() => {
     const span = 3 + WALL_T; // 壁は床の外側まで
     const addArch = (p: THREE.Path, w: number, bottom: number) => {
@@ -996,8 +790,17 @@ function Walls({ tex }: { tex: Tex }) {
     return { backGeo, leftGeo, frameGeo, portalGeo };
   }, []);
 
-  const wallA = <meshStandardMaterial attach="material-0" color="#9bc878" roughness={1} />;
-  const wallB = <meshStandardMaterial attach="material-0" color="#86b565" roughness={1} />;
+  // 左の壁は少しだけ暗くして、奥の壁と区別がつくようにする（壁紙を変えたらマテリアルを作り直す）
+  const wallA = <meshStandardMaterial key={`a-${wallpaper.color}-${wallpaper.map?.id}`} attach="material-0" map={wallpaper.map} color={wallpaper.color} roughness={1} />;
+  const wallB = (
+    <meshStandardMaterial
+      key={`b-${wallpaper.color}-${wallpaper.map?.id}`}
+      attach="material-0"
+      map={wallpaper.map}
+      color={new THREE.Color(wallpaper.color).multiplyScalar(0.88)}
+      roughness={1}
+    />
+  );
   const edge = <meshStandardMaterial attach="material-1" color="#efe4c6" roughness={0.9} />;
 
   return (
@@ -1027,19 +830,19 @@ function Walls({ tex }: { tex: Tex }) {
       {/* 腰壁と巾木 */}
       <mesh position={[0, 0.45, -2.985]} receiveShadow>
         <boxGeometry args={[6, 0.9, 0.03]} />
-        <meshStandardMaterial color="#efe4c6" roughness={0.9} />
+        <meshStandardMaterial color={wallpaper.wainscot} roughness={0.9} />
       </mesh>
       <mesh position={[-2.985, 0.45, 0]} receiveShadow>
         <boxGeometry args={[0.03, 0.9, 6]} />
-        <meshStandardMaterial color="#e8dcb8" roughness={0.9} />
+        <meshStandardMaterial color={new THREE.Color(wallpaper.wainscot).multiplyScalar(0.95)} roughness={0.9} />
       </mesh>
       <mesh position={[0, 0.92, -2.97]}>
         <boxGeometry args={[6, 0.04, 0.06]} />
-        <meshStandardMaterial color="#d6b27a" />
+        <meshStandardMaterial color={wallpaper.rail} />
       </mesh>
       <mesh position={[-2.97, 0.92, 0]}>
         <boxGeometry args={[0.06, 0.04, 6]} />
-        <meshStandardMaterial color="#d6b27a" />
+        <meshStandardMaterial color={wallpaper.rail} />
       </mesh>
       <mesh position={[0, 0.06, -2.96]}>
         <boxGeometry args={[6, 0.12, 0.08]} />
@@ -1168,8 +971,14 @@ function Fireflies({ tex }: { tex: Tex }) {
 /* =====================================================
    シーン
    ===================================================== */
+/** ベッドを部屋に出していればベッドの上、しまっていれば床に座る位置 */
+const RESIDENT_ON_BED: V3 = [1.45, 0.73, -2.38];
+const RESIDENT_ON_FLOOR: V3 = [1.0, 0, -2.0];
+
 function Scene() {
   const tex = useTextures();
+  const avatar = useAppSelector(selectAvatar);
+  const bedPlaced = useAppSelector((s) => selectIsPlaced(s, "bed"));
   return (
     <>
       <hemisphereLight args={["#f2f6e2", "#a58563", 1.15]} />
@@ -1193,16 +1002,23 @@ function Scene() {
 
       <Walls tex={tex} />
       <Shelf tex={tex} />
-      <Backpack />
 
-      {/* ドラッグで動かせる大きめの家具（猫はラグと一緒に動く） */}
+      {/* ドラッグで動かせて、バッグに出し入れできる家具 */}
       <Draggable id="rug">
         <Rug />
+      </Draggable>
+      <Draggable id="cat">
         <Cat position={[-0.1, 0.012, 1.0]} tex={tex} />
       </Draggable>
-      <Draggable id="bed">
-        <Bed />
+      <Draggable id="backpack">
+        <Backpack />
       </Draggable>
+      <Draggable id="bed">
+        <Bed>
+          <Resident avatar={avatar} position={RESIDENT_ON_BED} />
+        </Bed>
+      </Draggable>
+      {!bedPlaced && <Resident avatar={avatar} position={RESIDENT_ON_FLOOR} />}
       <Draggable id="desk">
         <Desk tex={tex} />
       </Draggable>
@@ -1221,6 +1037,30 @@ function Scene() {
         <ShadowGroup>
           <Plant position={[-2.45, 0, 2.2]} scale={1.4} phase={1.6} />
         </ShadowGroup>
+      </Draggable>
+      <Draggable id="bookshelf">
+        <Bookshelf />
+      </Draggable>
+      <Draggable id="sofa">
+        <Sofa />
+      </Draggable>
+      <Draggable id="beanbag">
+        <Beanbag />
+      </Draggable>
+      <Draggable id="lowTable">
+        <LowTable glow={tex.glow} />
+      </Draggable>
+      <Draggable id="floorLamp">
+        <FloorLamp glow={tex.glow} />
+      </Draggable>
+      <Draggable id="guitar">
+        <Guitar />
+      </Draggable>
+      <Draggable id="fishbowl">
+        <Fishbowl />
+      </Draggable>
+      <Draggable id="cactus">
+        <Cactus />
       </Draggable>
 
       <ShadowGroup>
@@ -1253,6 +1093,9 @@ function FitToScreen() {
 
 export default function Room() {
   const [touched, setTouched] = useState(false);
+  const dispatch = useAppDispatch();
+  // ログイン中なら、その人の部屋（家具の配置・壁紙・住人）を読み込む
+  useRoomSync();
   return (
     <div className="room-container">
       <Canvas
@@ -1264,6 +1107,8 @@ export default function Room() {
           gl.toneMapping = THREE.NeutralToneMapping;
         }}
         onPointerDown={() => setTouched(true)}
+        // 家具以外をクリックしたら、選んでいた家具の選択を外す
+        onPointerMissed={() => dispatch(selectFurniture(null))}
       >
         <Scene />
         <FitToScreen />
