@@ -1217,12 +1217,15 @@ function Scene() {
 
 /** 画面の縦横比に合わせてズームし、縦長の画面でも部屋が切れないようにする */
 function FitToScreen() {
-  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  // three.js のカメラは React の state ではなく外部のオブジェクトなので、
+  // hook の戻り値を直接書き換えず、effect の中で get() から取り出して更新する
+  const get = useThree((s) => s.get);
   const aspect = useThree((s) => s.size.width / s.size.height);
   useEffect(() => {
+    const camera = get().camera as THREE.PerspectiveCamera;
     camera.zoom = Math.min(1, aspect / 1.2);
     camera.updateProjectionMatrix();
-  }, [camera, aspect]);
+  }, [get, aspect]);
   return null;
 }
 
