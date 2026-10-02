@@ -4,8 +4,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
 import Draggable from "./features/room/Draggable";
-import { resetLayout, selectHasMovedFurniture } from "./features/room/roomLayoutSlice";
-import { useAppDispatch, useAppSelector } from "./app/hooks";
+import LayoutToolbar from "./features/room/LayoutToolbar";
 import "./Room.css";
 
 type V3 = [number, number, number];
@@ -1254,8 +1253,6 @@ function FitToScreen() {
 
 export default function Room() {
   const [touched, setTouched] = useState(false);
-  const hasMoved = useAppSelector(selectHasMovedFurniture);
-  const dispatch = useAppDispatch();
   return (
     <div className="room-container">
       <Canvas
@@ -1285,12 +1282,8 @@ export default function Room() {
           maxAzimuthAngle={Math.PI / 2 + 0.2}
         />
       </Canvas>
-      <div className={`room-hint${touched ? " is-hidden" : ""}`}>家具をドラッグで移動 / 背景をドラッグで回転 / ホイールでズーム</div>
-      {hasMoved && (
-        <button type="button" className="room-reset" onClick={() => dispatch(resetLayout())}>
-          配置をリセット
-        </button>
-      )}
+      <div className={`room-hint${touched ? " is-hidden" : ""}`}>ドラッグで回転 / ホイールでズーム</div>
+      <LayoutToolbar />
     </div>
   );
 }

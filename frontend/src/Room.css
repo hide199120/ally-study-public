@@ -50,7 +50,8 @@
 .room-hint {
   position: absolute;
   bottom: clamp(16px, 3vw, 32px);
-  right: clamp(16px, 3vw, 32px);
+  left: 50%;
+  transform: translateX(-50%);
   padding: 6px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.45);
@@ -69,30 +70,73 @@
   opacity: 0;
 }
 
-/* 家具を動かしたあとに出る「配置をリセット」ボタン */
-.room-reset {
+/* 右下の「模様替え」ボタンまわり */
+.room-tools {
   position: absolute;
   bottom: clamp(16px, 3vw, 32px);
   right: clamp(16px, 3vw, 32px);
-  padding: 6px 16px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.room-tools__note {
+  margin: 0;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(61, 107, 58, 0.85);
+  color: #fffbea;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  animation: note-in 0.2s ease-out;
+}
+@keyframes note-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+.room-tools__buttons {
+  display: flex;
+  gap: 8px;
+}
+.room-btn {
+  padding: 8px 18px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 6px 16px -10px rgba(52, 88, 46, 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   color: #3d6b3a;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
 }
-.room-reset:hover {
-  background: rgba(255, 255, 255, 0.8);
+.room-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
+}
+.room-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.room-btn:focus-visible {
+  outline: 2px solid #5f9d57;
+  outline-offset: 2px;
+}
+.room-btn--primary {
+  background: #5f9d57;
+  border-color: #5f9d57;
+  color: #fffbea;
+}
+.room-btn--primary:hover:not(:disabled) {
+  background: #3d6b3a;
 }
 
 @media (max-width: 640px) {
   .room-container::after { display: none; }
-  .room-hint, .room-reset { right: 50%; transform: translateX(50%); }
+  .room-hint { bottom: 76px; }
 }
