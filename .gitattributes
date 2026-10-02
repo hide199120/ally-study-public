@@ -1,0 +1,6 @@
+# 改行コードをLFに統一する（Docker/Linux上で動かすファイルがあるため）
+* text=auto eol=lf
+
+# Windows専用のスクリプトはCRLFのまま
+*.ps1 text eol=crlf
+*.bat text eol=crlf

@@ -1,0 +1,40 @@
+# ローカル開発用の構成
+#   docker compose up --build   … 起動
+#   docker compose down         … 停止（DBのデータは残る）
+#   docker compose down -v      … 停止してDBのデータも削除
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-ally_study}
+      MYSQL_USER: ${DB_USER:-ally}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-ally_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      TZ: Asia/Tokyo
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_password}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    environment:
+      PORT: 8080
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-ally_study}
+      DB_USER: ${DB_USER:-ally}
+      DB_PASSWORD: ${DB_PASSWORD:-ally_password}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
