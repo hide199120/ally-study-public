@@ -1,0 +1,231 @@
+openapi: 3.0.3
+info:
+  title: ally-study API
+  version: 0.1.0
+  description: |
+    勉強のお供Webアプリ「ally-study」のAPI仕様です。
+
+    ## 認証
+    ログインに成功すると、セッションIDが `session_id` Cookie（HttpOnly / SameSite=Lax）で発行されます。
+    認証が必要なAPIは、このCookieを送ることで呼び出せます。
+servers:
+  - url: http://localhost:8080/api
+    description: ローカル開発環境
+
+tags:
+  - name: system
+    description: 動作確認
+  - name: auth
+    description: 新規登録・ログイン・ログアウト
+  - name: users
+    description: ユーザー情報
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: ヘルスチェック
+      description: APIサーバーが起動しているかを確認します。
+      security: []
+      responses:
+        "200":
+          description: 正常
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /auth/signup:
+    post:
+      tags: [auth]
+      operationId: signup
+      summary: 新規登録
+      description: ユーザー名とパスワードでユーザーを作成し、そのままログイン状態にします。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: 登録成功
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: ユーザー名がすでに使われている
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: username_taken
+                message: このユーザー名はすでに使われています
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: ログイン
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: ログイン成功
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: ユーザー名またはパスワードが違う
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                code: invalid_credentials
+                message: ユーザー名またはパスワードが正しくありません
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: ログアウト
+      description: セッションを削除し、Cookieを無効にします。
+      responses:
+        "204":
+          description: ログアウト成功
+          headers:
+            Set-Cookie:
+              description: 有効期限切れの `session_id` Cookie（削除用）
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me:
+    get:
+      tags: [users]
+      operationId: getMe
+      summary: ログイン中のユーザー情報を取得
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+security:
+  - sessionCookie: []
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session_id
+
+  headers:
+    SetSessionCookie:
+      description: "`session_id` Cookie（HttpOnly; SameSite=Lax; Path=/）"
+      schema:
+        type: string
+        example: session_id=abc123; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800
+
+  responses:
+    BadRequest:
+      description: 入力内容が不正
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: validation_error
+            message: ユーザー名は3〜32文字の半角英数字とアンダースコアで入力してください
+    Unauthorized:
+      description: ログインしていない、またはセッションが切れている
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: unauthorized
+            message: ログインしてください
+
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    Credentials:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 32
+          pattern: "^[A-Za-z0-9_]+$"
+          example: ally_user
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 72
+          description: bcryptの上限に合わせて最大72文字
+          example: password1234
+
+    User:
+      type: object
+      required: [id, username, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: ally_user
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-02T23:45:00+09:00"
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 機械的に判定するためのエラーコード
+          example: validation_error
+        message:
+          type: string
+          description: 画面に表示できるメッセージ
+          example: 入力内容を確認してください
