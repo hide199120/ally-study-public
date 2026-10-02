@@ -25,6 +25,12 @@ type AuthService interface {
 	Logout(ctx context.Context, token string) error
 }
 
+// RoomService は部屋（模様替え）の処理（service.RoomService が満たす）。
+type RoomService interface {
+	Get(ctx context.Context, userID int64) (*model.Room, error)
+	Update(ctx context.Context, userID int64, room *model.Room) (*model.Room, error)
+}
+
 // CookieConfig はセッションCookieの設定。
 type CookieConfig struct {
 	// Secure を true にすると HTTPS のときだけ Cookie が送られる（本番では true にする）
@@ -35,12 +41,12 @@ type CookieConfig struct {
 type Server struct {
 	DB     Pinger
 	Auth   AuthService
+	Room   RoomService
 	Cookie CookieConfig
 }
 
 // OpenAPI のエンドポイントを実装し忘れたら、ここでコンパイルエラーになる
 var _ api.ServerInterface = (*Server)(nil)
-
 
 // errorJSON は OpenAPI で定義した Error の形でエラーを返す。
 func errorJSON(c *gin.Context, status int, code, message string) {

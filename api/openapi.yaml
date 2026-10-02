@@ -19,6 +19,8 @@ tags:
     description: 新規登録・ログイン・ログアウト
   - name: users
     description: ユーザー情報
+  - name: room
+    description: 部屋の模様替え（家具の配置・バッグ・壁紙・住人）
 
 paths:
   /health:
@@ -147,6 +149,47 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /me/room:
+    get:
+      tags: [room]
+      operationId: getMyRoom
+      summary: ログイン中のユーザーの部屋を取得
+      description: |
+        壁紙・住人（女の子/男の子）・家具の配置を返します。
+        まだ一度も保存していないユーザーには初期設定を返します。
+        `furniture` に含まれない家具は、フロント側で決めた初期状態（初期配置 or バッグの中）として扱います。
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      tags: [room]
+      operationId: updateMyRoom
+      summary: ログイン中のユーザーの部屋を保存
+      description: 部屋の設定を丸ごと置き換えます（模様替えの「完了」を押したときに呼ばれます）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Room"
+      responses:
+        "200":
+          description: 保存成功（保存後の部屋を返す）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 security:
   - sessionCookie: []
 
@@ -240,3 +283,87 @@ components:
           type: string
           description: 画面に表示できるメッセージ
           example: 入力内容を確認してください
+
+    Room:
+      type: object
+      description: ユーザーごとの部屋の設定
+      required: [avatar, wallpaper, furniture]
+      properties:
+        avatar:
+          $ref: "#/components/schemas/Avatar"
+        wallpaper:
+          $ref: "#/components/schemas/Wallpaper"
+        furniture:
+          type: array
+          description: 家具ごとの状態（部屋に出しているか、バッグの中か）と位置。同じ家具は1回だけ
+          maxItems: 17
+          items:
+            $ref: "#/components/schemas/FurniturePlacement"
+
+    Avatar:
+      type: string
+      description: 部屋にいる住人（girl=女の子, boy=男の子）
+      enum: [girl, boy]
+      example: girl
+
+    Wallpaper:
+      type: string
+      description: |
+        壁紙
+        - meadow: 若草
+        - cream: クリームストライプ
+        - dots: さくら水玉
+        - botanical: ボタニカル
+        - gingham: ギンガムチェック
+        - night: 星空
+        - wood: 板張り
+      enum: [meadow, cream, dots, botanical, gingham, night, wood]
+      example: meadow
+
+    FurnitureId:
+      type: string
+      description: 動かせる家具の種類
+      enum:
+        - bed
+        - desk
+        - chair
+        - sideTable
+        - rug
+        - plantRight
+        - plantLeft
+        - cat
+        - backpack
+        - bookshelf
+        - beanbag
+        - floorLamp
+        - lowTable
+        - cactus
+        - guitar
+        - fishbowl
+        - sofa
+      example: bed
+
+    FurniturePlacement:
+      type: object
+      required: [id, placed, x, z]
+      properties:
+        id:
+          $ref: "#/components/schemas/FurnitureId"
+        placed:
+          type: boolean
+          description: true=部屋に出している / false=バッグの中
+          example: true
+        x:
+          type: number
+          format: double
+          description: 初期位置から床の上でどれだけ動かしたか（x方向）
+          minimum: -6
+          maximum: 6
+          example: -0.5
+        z:
+          type: number
+          format: double
+          description: 初期位置から床の上でどれだけ動かしたか（z方向）
+          minimum: -6
+          maximum: 6
+          example: 0.3
