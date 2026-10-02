@@ -98,6 +98,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/room": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ログイン中のユーザーの部屋を取得
+         * @description 壁紙・住人（女の子/男の子）・家具の配置を返します。
+         *     まだ一度も保存していないユーザーには初期設定を返します。
+         *     `furniture` に含まれない家具は、フロント側で決めた初期状態（初期配置 or バッグの中）として扱います。
+         */
+        get: operations["getMyRoom"];
+        /**
+         * ログイン中のユーザーの部屋を保存
+         * @description 部屋の設定を丸ごと置き換えます（模様替えの「完了」を押したときに呼ばれます）。
+         */
+        put: operations["updateMyRoom"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -144,6 +170,58 @@ export interface components {
              * @example 入力内容を確認してください
              */
             message: string;
+        };
+        /** @description ユーザーごとの部屋の設定 */
+        Room: {
+            avatar: components["schemas"]["Avatar"];
+            wallpaper: components["schemas"]["Wallpaper"];
+            /** @description 家具ごとの状態（部屋に出しているか、バッグの中か）と位置。同じ家具は1回だけ */
+            furniture: components["schemas"]["FurniturePlacement"][];
+        };
+        /**
+         * @description 部屋にいる住人（girl=女の子, boy=男の子）
+         * @example girl
+         * @enum {string}
+         */
+        Avatar: "girl" | "boy";
+        /**
+         * @description 壁紙
+         *     - meadow: 若草
+         *     - cream: クリームストライプ
+         *     - dots: さくら水玉
+         *     - botanical: ボタニカル
+         *     - gingham: ギンガムチェック
+         *     - night: 星空
+         *     - wood: 板張り
+         * @example meadow
+         * @enum {string}
+         */
+        Wallpaper: "meadow" | "cream" | "dots" | "botanical" | "gingham" | "night" | "wood";
+        /**
+         * @description 動かせる家具の種類
+         * @example bed
+         * @enum {string}
+         */
+        FurnitureId: "bed" | "desk" | "chair" | "sideTable" | "rug" | "plantRight" | "plantLeft" | "cat" | "backpack" | "bookshelf" | "beanbag" | "floorLamp" | "lowTable" | "cactus" | "guitar" | "fishbowl" | "sofa";
+        FurniturePlacement: {
+            id: components["schemas"]["FurnitureId"];
+            /**
+             * @description true=部屋に出している / false=バッグの中
+             * @example true
+             */
+            placed: boolean;
+            /**
+             * Format: double
+             * @description 初期位置から床の上でどれだけ動かしたか（x方向）
+             * @example -0.5
+             */
+            x: number;
+            /**
+             * Format: double
+             * @description 初期位置から床の上でどれだけ動かしたか（z方向）
+             * @example 0.3
+             */
+            z: number;
         };
     };
     responses: {
@@ -348,6 +426,53 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMyRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Room"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateMyRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Room"];
+            };
+        };
+        responses: {
+            /** @description 保存成功（保存後の部屋を返す） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Room"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

@@ -8,7 +8,7 @@ export const authApi = createApi({
   // Cookie（session_id）を一緒に送るために credentials: 'include' を指定する
   // 同じオリジンの /api に送る（テスト環境でも動くよう、オリジン付きの絶対URLにしている）
   baseQuery: fetchBaseQuery({ baseUrl: `${window.location.origin}/api`, credentials: 'include' }),
-  tagTypes: ['Me'],
+  tagTypes: ['Me', 'Room'],
   endpoints: (builder) => ({
     // ログイン中のユーザー。未ログイン（401）はエラーではなく null として扱う
     getMe: builder.query<User | null, void>({
@@ -30,7 +30,7 @@ export const authApi = createApi({
     }),
     logout: builder.mutation<void, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
-      invalidatesTags: ['Me'],
+      invalidatesTags: ['Me', 'Room'],
     }),
   }),
 })

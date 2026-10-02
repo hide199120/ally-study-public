@@ -5,3 +5,8 @@ import type { components } from './schema'
 export type User = components['schemas']['User']
 export type Credentials = components['schemas']['Credentials']
 export type ApiError = components['schemas']['Error']
+export type Room = components['schemas']['Room']
+export type Avatar = components['schemas']['Avatar']
+export type Wallpaper = components['schemas']['Wallpaper']
+export type FurnitureId = components['schemas']['FurnitureId']
+export type FurniturePlacement = components['schemas']['FurniturePlacement']

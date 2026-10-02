@@ -9,6 +9,87 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Defines values for Avatar.
+const (
+	AvatarGirl Avatar = "girl"
+	AvatarBoy  Avatar = "boy"
+)
+
+// Valid indicates whether the value is a known member of the Avatar enum.
+func (e Avatar) Valid() bool {
+	switch e {
+	case AvatarGirl:
+		return true
+	case AvatarBoy:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FurnitureId.
+const (
+	FurnitureIdBed        FurnitureId = "bed"
+	FurnitureIdDesk       FurnitureId = "desk"
+	FurnitureIdChair      FurnitureId = "chair"
+	FurnitureIdSideTable  FurnitureId = "sideTable"
+	FurnitureIdRug        FurnitureId = "rug"
+	FurnitureIdPlantRight FurnitureId = "plantRight"
+	FurnitureIdPlantLeft  FurnitureId = "plantLeft"
+	FurnitureIdCat        FurnitureId = "cat"
+	FurnitureIdBackpack   FurnitureId = "backpack"
+	FurnitureIdBookshelf  FurnitureId = "bookshelf"
+	FurnitureIdBeanbag    FurnitureId = "beanbag"
+	FurnitureIdFloorLamp  FurnitureId = "floorLamp"
+	FurnitureIdLowTable   FurnitureId = "lowTable"
+	FurnitureIdCactus     FurnitureId = "cactus"
+	FurnitureIdGuitar     FurnitureId = "guitar"
+	FurnitureIdFishbowl   FurnitureId = "fishbowl"
+	FurnitureIdSofa       FurnitureId = "sofa"
+)
+
+// Valid indicates whether the value is a known member of the FurnitureId enum.
+func (e FurnitureId) Valid() bool {
+	switch e {
+	case FurnitureIdBed:
+		return true
+	case FurnitureIdDesk:
+		return true
+	case FurnitureIdChair:
+		return true
+	case FurnitureIdSideTable:
+		return true
+	case FurnitureIdRug:
+		return true
+	case FurnitureIdPlantRight:
+		return true
+	case FurnitureIdPlantLeft:
+		return true
+	case FurnitureIdCat:
+		return true
+	case FurnitureIdBackpack:
+		return true
+	case FurnitureIdBookshelf:
+		return true
+	case FurnitureIdBeanbag:
+		return true
+	case FurnitureIdFloorLamp:
+		return true
+	case FurnitureIdLowTable:
+		return true
+	case FurnitureIdCactus:
+		return true
+	case FurnitureIdGuitar:
+		return true
+	case FurnitureIdFishbowl:
+		return true
+	case FurnitureIdSofa:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	HealthStatusOk          HealthStatus = "ok"
@@ -26,6 +107,42 @@ func (e HealthStatus) Valid() bool {
 		return false
 	}
 }
+
+// Defines values for Wallpaper.
+const (
+	WallpaperMeadow    Wallpaper = "meadow"
+	WallpaperCream     Wallpaper = "cream"
+	WallpaperDots      Wallpaper = "dots"
+	WallpaperBotanical Wallpaper = "botanical"
+	WallpaperGingham   Wallpaper = "gingham"
+	WallpaperNight     Wallpaper = "night"
+	WallpaperWood      Wallpaper = "wood"
+)
+
+// Valid indicates whether the value is a known member of the Wallpaper enum.
+func (e Wallpaper) Valid() bool {
+	switch e {
+	case WallpaperMeadow:
+		return true
+	case WallpaperCream:
+		return true
+	case WallpaperDots:
+		return true
+	case WallpaperBotanical:
+		return true
+	case WallpaperGingham:
+		return true
+	case WallpaperNight:
+		return true
+	case WallpaperWood:
+		return true
+	default:
+		return false
+	}
+}
+
+// Avatar 部屋にいる住人（girl=女の子, boy=男の子）
+type Avatar string
 
 // Credentials defines model for Credentials.
 type Credentials struct {
@@ -51,6 +168,24 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// FurnitureId 動かせる家具の種類
+type FurnitureId string
+
+// FurniturePlacement defines model for FurniturePlacement.
+type FurniturePlacement struct {
+	// Id 動かせる家具の種類
+	Id FurnitureId `json:"id"`
+
+	// Placed true=部屋に出している / false=バッグの中
+	Placed bool `json:"placed"`
+
+	// X 初期位置から床の上でどれだけ動かしたか（x方向）
+	X float64 `json:"x"`
+
+	// Z 初期位置から床の上でどれだけ動かしたか（z方向）
+	Z float64 `json:"z"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	// Status Example: ok
@@ -59,6 +194,25 @@ type Health struct {
 
 // HealthStatus Example: ok
 type HealthStatus string
+
+// Room ユーザーごとの部屋の設定
+type Room struct {
+	// Avatar 部屋にいる住人（girl=女の子, boy=男の子）
+	Avatar Avatar `json:"avatar"`
+
+	// Furniture 家具ごとの状態（部屋に出しているか、バッグの中か）と位置。同じ家具は1回だけ
+	Furniture []FurniturePlacement `json:"furniture"`
+
+	// Wallpaper 壁紙
+	// - meadow: 若草
+	// - cream: クリームストライプ
+	// - dots: さくら水玉
+	// - botanical: ボタニカル
+	// - gingham: ギンガムチェック
+	// - night: 星空
+	// - wood: 板張り
+	Wallpaper Wallpaper `json:"wallpaper"`
+}
 
 // User defines model for User.
 type User struct {
@@ -72,6 +226,16 @@ type User struct {
 	Username string `json:"username"`
 }
 
+// Wallpaper 壁紙
+// - meadow: 若草
+// - cream: クリームストライプ
+// - dots: さくら水玉
+// - botanical: ボタニカル
+// - gingham: ギンガムチェック
+// - night: 星空
+// - wood: 板張り
+type Wallpaper string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -83,6 +247,9 @@ type LoginJSONRequestBody = Credentials
 
 // SignupJSONRequestBody defines body for Signup for application/json ContentType.
 type SignupJSONRequestBody = Credentials
+
+// UpdateMyRoomJSONRequestBody defines body for UpdateMyRoom for application/json ContentType.
+type UpdateMyRoomJSONRequestBody = Room
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -101,6 +268,12 @@ type ServerInterface interface {
 	// GetMe ログイン中のユーザー情報を取得
 	// (GET /me)
 	GetMe(c *gin.Context)
+	// GetMyRoom ログイン中のユーザーの部屋を取得
+	// (GET /me/room)
+	GetMyRoom(c *gin.Context)
+	// UpdateMyRoom ログイン中のユーザーの部屋を保存
+	// (PUT /me/room)
+	UpdateMyRoom(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -177,6 +350,32 @@ func (siw *ServerInterfaceWrapper) GetMe(c *gin.Context) {
 	siw.Handler.GetMe(c)
 }
 
+// GetMyRoom operation middleware
+func (siw *ServerInterfaceWrapper) GetMyRoom(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMyRoom(c)
+}
+
+// UpdateMyRoom operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMyRoom(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateMyRoom(c)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -209,4 +408,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
+	router.GET(options.BaseURL+"/me/room", wrapper.GetMyRoom)
+	router.PUT(options.BaseURL+"/me/room", wrapper.UpdateMyRoom)
 }
