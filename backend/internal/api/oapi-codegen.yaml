@@ -1,0 +1,10 @@
+# oapi-codegen の設定
+# api/openapi.yaml から、リクエスト/レスポンスの型と Gin 用のサーバーインターフェースを生成する
+package: api
+output: openapi.gen.go
+generate:
+  models: true
+  gin-server: true
+compatibility:
+  # enumの定数名に型名を付ける（例: Ok → HealthStatusOk）
+  always-prefix-enum-values: true

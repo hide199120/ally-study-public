@@ -1,12 +1,17 @@
 // Package config は環境変数からアプリの設定を読み込む。
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 // Config はアプリ全体の設定。
 type Config struct {
 	Port string
 	DB   DBConfig
+	// CookieSecure を true にすると、セッションCookieに Secure 属性を付ける（本番のHTTPS環境用）
+	CookieSecure bool
 }
 
 // DBConfig はMySQLへの接続設定。
@@ -29,6 +34,7 @@ func Load() Config {
 			User:     getEnv("DB_USER", "ally"),
 			Password: getEnv("DB_PASSWORD", "ally_password"),
 		},
+		CookieSecure: getEnvBool("COOKIE_SECURE", false),
 	}
 }
 
@@ -37,4 +43,12 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v, err := strconv.ParseBool(os.Getenv(key))
+	if err != nil {
+		return fallback
+	}
+	return v
 }

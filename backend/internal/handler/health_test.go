@@ -8,15 +8,23 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/hide199120/ally-study/backend/internal/api"
 )
 
 type fakePinger struct{ err error }
 
 func (f fakePinger) PingContext(context.Context) error { return f.err }
 
-func TestHealthHandler_Get(t *testing.T) {
+// newTestRouter は本番と同じルーティングでテスト用のルーターを作る。
+func newTestRouter(s *Server) *gin.Engine {
 	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	api.RegisterHandlersWithOptions(r, s, api.GinServerOptions{BaseURL: "/api"})
+	return r
+}
 
+func TestServer_GetHealth(t *testing.T) {
 	tests := []struct {
 		name     string
 		pingErr  error
@@ -29,9 +37,7 @@ func TestHealthHandler_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := &HealthHandler{DB: fakePinger{err: tt.pingErr}}
-			r := gin.New()
-			r.GET("/api/health", h.Get)
+			r := newTestRouter(&Server{DB: fakePinger{err: tt.pingErr}})
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
