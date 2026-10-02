@@ -6,9 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/hide199120/ally-study/backend/internal/api"
 	"github.com/hide199120/ally-study/backend/internal/config"
 	"github.com/hide199120/ally-study/backend/internal/database"
 	"github.com/hide199120/ally-study/backend/internal/handler"
+	"github.com/hide199120/ally-study/backend/internal/repository"
+	"github.com/hide199120/ally-study/backend/internal/service"
 )
 
 func main() {
@@ -28,11 +31,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	health := &handler.HealthHandler{DB: db}
-
-	// OpenAPIのベースパス（/api）に合わせてグループ化する
-	api := r.Group("/api")
-	api.GET("/health", health.Get)
+	// OpenAPI から生成したルーティングにハンドラーを登録する（ベースパスは /api）
+	// 依存関係を組み立てる（repository → service → handler）
+	auth := service.NewAuthService(
+		&repository.UserRepository{DB: db},
+		&repository.SessionRepository{DB: db},
+	)
+	server := &handler.Server{
+		DB:     db,
+		Auth:   auth,
+		Cookie: handler.CookieConfig{Secure: cfg.CookieSecure},
+	}
+	api.RegisterHandlersWithOptions(r, server, api.GinServerOptions{BaseURL: "/api"})
 
 	log.Printf("API server listening on :%s", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
