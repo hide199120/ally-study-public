@@ -10,9 +10,11 @@ export type Offset = { x: number; z: number }
 
 type RoomLayoutState = {
   offsets: Partial<Record<FurnitureId, Offset>>
+  /** 模様替えモード中か（このときだけ家具を動かせる） */
+  editing: boolean
 }
 
-const initialState: RoomLayoutState = { offsets: {} }
+const initialState: RoomLayoutState = { offsets: {}, editing: false }
 
 /** 動かしていない家具は同じオブジェクトを返す（useSelector が毎回再描画しないように） */
 const ZERO: Offset = { x: 0, z: 0 }
@@ -22,7 +24,14 @@ const roomLayoutSlice = createSlice({
   name: 'roomLayout',
   initialState,
   reducers: {
+    startEditing(state) {
+      state.editing = true
+    },
+    finishEditing(state) {
+      state.editing = false
+    },
     moveFurniture(state, action: PayloadAction<{ id: FurnitureId; offset: Offset }>) {
+      if (!state.editing) return
       const { id, offset } = action.payload
       if (offset.x === 0 && offset.z === 0) {
         delete state.offsets[id]
@@ -30,14 +39,17 @@ const roomLayoutSlice = createSlice({
         state.offsets[id] = offset
       }
     },
-    resetLayout() {
-      return initialState
+    /** 家具をすべて初期配置に戻す（模様替えモード中だけ） */
+    resetLayout(state) {
+      if (!state.editing) return
+      state.offsets = {}
     },
   },
 })
 
-export const { moveFurniture, resetLayout } = roomLayoutSlice.actions
+export const { startEditing, finishEditing, moveFurniture, resetLayout } = roomLayoutSlice.actions
 export const roomLayoutReducer = roomLayoutSlice.reducer
 
 export const selectFurnitureOffset = (state: RootState, id: FurnitureId): Offset => state.roomLayout.offsets[id] ?? ZERO
 export const selectHasMovedFurniture = (state: RootState): boolean => Object.keys(state.roomLayout.offsets).length > 0
+export const selectIsEditingLayout = (state: RootState): boolean => state.roomLayout.editing

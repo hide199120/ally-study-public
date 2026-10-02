@@ -3,12 +3,14 @@ import type { ReactNode } from "react";
 import * as THREE from "three";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import { useAppDispatch, useAppSelector } from "../../app/hooks";
-import { moveFurniture, selectFurnitureOffset, type FurnitureId } from "./roomLayoutSlice";
+import { moveFurniture, selectFurnitureOffset, selectIsEditingLayout, type FurnitureId } from "./roomLayoutSlice";
 
 /** 家具を置ける床の範囲（奥と左は壁・巾木の手前まで） */
 const FLOOR = { min: -2.92, max: 2.98 };
 /** つかんでいる間だけ少し持ち上げて「持っている感」を出す */
 const LIFT = 0.06;
+/** 模様替えモードでカーソルを乗せたとき、少しだけ浮かせて「動かせる」と分かるようにする */
+const HOVER_LIFT = 0.025;
 
 const FLOOR_PLANE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -29,10 +31,12 @@ function measureMeshes(root: THREE.Object3D) {
  * - ドラッグ中は three.js のオブジェクトを直接動かし（毎フレーム再描画しない）、
  *   離したときだけ Redux に位置を保存する
  * - ドラッグ中はカメラの回転（OrbitControls）を止める
+ * - 模様替えモードのときだけ動かせる
  */
 export default function Draggable({ id, children }: { id: FurnitureId; children: ReactNode }) {
   const ref = useRef<THREE.Group>(null);
   const offset = useAppSelector((s) => selectFurnitureOffset(s, id));
+  const editing = useAppSelector(selectIsEditingLayout);
   const dispatch = useAppDispatch();
   const get = useThree((s) => s.get);
   const hovered = useRef(false);
@@ -47,8 +51,23 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
   // 画面から消えるときにドラッグ中なら後片付け
   useEffect(() => () => stopDrag.current?.(), []);
 
+  // 模様替えモードを終えたら、ホバーやドラッグの状態を元に戻す
+  useEffect(() => {
+    if (editing) return;
+    stopDrag.current?.();
+    hovered.current = false;
+    ref.current?.position.setY(0);
+    get().gl.domElement.style.cursor = "";
+  }, [editing, get]);
+
   const updateCursor = () => {
     get().gl.domElement.style.cursor = dragging.current ? "grabbing" : hovered.current ? "move" : "";
+  };
+
+  const setHovered = (value: boolean) => {
+    hovered.current = value;
+    if (!dragging.current) ref.current?.position.setY(value ? HOVER_LIFT : 0);
+    updateCursor();
   };
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -97,7 +116,7 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
-      group.position.y = 0;
+      group.position.y = hovered.current ? HOVER_LIFT : 0;
       if (controls) controls.enabled = true;
       dragging.current = false;
       stopDrag.current = null;
@@ -107,7 +126,7 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
     const onUp = () => {
       finish();
       const next = { x: round(latest.x), z: round(latest.z) };
-      group.position.set(next.x, 0, next.z);
+      group.position.setX(next.x).setZ(next.z);
       dispatch(moveFurniture({ id, offset: next }));
     };
 
@@ -124,16 +143,17 @@ export default function Draggable({ id, children }: { id: FurnitureId; children:
   return (
     <group
       ref={ref}
-      onPointerDown={onPointerDown}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        hovered.current = true;
-        updateCursor();
-      }}
-      onPointerOut={() => {
-        hovered.current = false;
-        updateCursor();
-      }}
+      // 模様替えモードでなければイベントを付けない（クリックしても何も起きず、カメラの回転だけになる）
+      onPointerDown={editing ? onPointerDown : undefined}
+      onPointerOver={
+        editing
+          ? (e) => {
+              e.stopPropagation();
+              setHovered(true);
+            }
+          : undefined
+      }
+      onPointerOut={editing ? () => setHovered(false) : undefined}
     >
       {children}
     </group>

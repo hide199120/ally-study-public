@@ -153,68 +153,14 @@ body {
   background: var(--leaf);
 }
 
-/* BGMボタン */
-.bgm {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 18px 8px 8px;
-  border-radius: 999px;
-  font: inherit;
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-.bgm:hover { background: rgba(255, 255, 255, 0.58); transform: translateY(-1px); }
-.bgm:active { transform: translateY(0) scale(0.98); }
-.bgm:focus-visible { outline: 2px solid var(--leaf); outline-offset: 3px; }
-
-.bgm__icon {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--leaf);
-  box-shadow: 0 4px 12px -4px rgba(61, 107, 58, 0.6);
-  transition: background-color 0.2s ease;
-}
-.bgm__icon svg { width: 18px; height: 18px; fill: #fffbea; }
-.bgm.is-playing .bgm__icon { background: var(--leaf-deep); }
-
-.bgm__text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
-.bgm__label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); }
-.bgm__title { font-size: 14px; font-weight: 700; }
-
-/* 再生中に動くイコライザー */
-.bgm__eq { display: flex; align-items: flex-end; gap: 3px; height: 16px; margin-left: 4px; }
-.bgm__eq i {
-  width: 3px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--leaf);
-  opacity: 0.45;
-  transition: height 0.3s ease;
-}
-.bgm.is-playing .bgm__eq i { opacity: 1; animation: eq 0.9s ease-in-out infinite alternate; }
-.bgm.is-playing .bgm__eq i:nth-child(2) { animation-delay: -0.3s; }
-.bgm.is-playing .bgm__eq i:nth-child(3) { animation-delay: -0.6s; }
-.bgm.is-playing .bgm__eq i:nth-child(4) { animation-delay: -0.15s; }
-@keyframes eq {
-  0% { height: 4px; }
-  100% { height: 16px; }
-}
-
 /* ===== スマホ ===== */
 @media (max-width: 640px) {
   .clock { min-width: 0; padding: 12px 16px 14px; border-radius: 18px; }
   .clock__time { font-size: 40px; }
   .clock__sec { font-size: 14px; }
   .clock__date { font-size: 12px; }
-  .bgm { padding: 6px 14px 6px 6px; }
-  .bgm__icon { width: 34px; height: 34px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .blob, .clock__colon, .bgm.is-playing .bgm__eq i { animation: none; }
+  .blob, .clock__colon { animation: none; }
 }
