@@ -3,6 +3,9 @@ import type { ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, RoundedBox } from "@react-three/drei";
+import Draggable from "./features/room/Draggable";
+import { resetLayout, selectHasMovedFurniture } from "./features/room/roomLayoutSlice";
+import { useAppDispatch, useAppSelector } from "./app/hooks";
 import "./Room.css";
 
 type V3 = [number, number, number];
@@ -1190,18 +1193,38 @@ function Scene() {
       <pointLight position={[-2.3, 1.2, -0.2]} color="#ffb866" intensity={2.2} distance={3.5} decay={2} />
 
       <Walls tex={tex} />
-      <Rug />
-      <Bed />
-      <Desk tex={tex} />
-      <Chair />
       <Shelf tex={tex} />
-      <SideTable tex={tex} />
       <Backpack />
-      <Cat position={[-0.1, 0.012, 1.0]} tex={tex} />
+
+      {/* ドラッグで動かせる大きめの家具（猫はラグと一緒に動く） */}
+      <Draggable id="rug">
+        <Rug />
+        <Cat position={[-0.1, 0.012, 1.0]} tex={tex} />
+      </Draggable>
+      <Draggable id="bed">
+        <Bed />
+      </Draggable>
+      <Draggable id="desk">
+        <Desk tex={tex} />
+      </Draggable>
+      <Draggable id="chair">
+        <Chair />
+      </Draggable>
+      <Draggable id="sideTable">
+        <SideTable tex={tex} />
+      </Draggable>
+      <Draggable id="plantRight">
+        <ShadowGroup>
+          <Plant position={[2.5, 0, 1.9]} scale={1.6} phase={0.5} pot="#c9a27a" />
+        </ShadowGroup>
+      </Draggable>
+      <Draggable id="plantLeft">
+        <ShadowGroup>
+          <Plant position={[-2.45, 0, 2.2]} scale={1.4} phase={1.6} />
+        </ShadowGroup>
+      </Draggable>
 
       <ShadowGroup>
-        <Plant position={[2.5, 0, 1.9]} scale={1.6} phase={0.5} pot="#c9a27a" />
-        <Plant position={[-2.45, 0, 2.2]} scale={1.4} phase={1.6} />
         <Plant position={[WIN.cx - 0.55, WIN.bottom - 0.08, -2.82]} scale={0.8} phase={1} />
         <Plant position={[WIN.cx + 0.55, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#c9a27a" />
       </ShadowGroup>
@@ -1231,6 +1254,8 @@ function FitToScreen() {
 
 export default function Room() {
   const [touched, setTouched] = useState(false);
+  const hasMoved = useAppSelector(selectHasMovedFurniture);
+  const dispatch = useAppDispatch();
   return (
     <div className="room-container">
       <Canvas
@@ -1246,6 +1271,7 @@ export default function Room() {
         <Scene />
         <FitToScreen />
         <OrbitControls
+          makeDefault
           target={[0, 1.2, 0]}
           enablePan={false}
           enableDamping
@@ -1259,7 +1285,12 @@ export default function Room() {
           maxAzimuthAngle={Math.PI / 2 + 0.2}
         />
       </Canvas>
-      <div className={`room-hint${touched ? " is-hidden" : ""}`}>ドラッグで回転 / ホイールでズーム</div>
+      <div className={`room-hint${touched ? " is-hidden" : ""}`}>家具をドラッグで移動 / 背景をドラッグで回転 / ホイールでズーム</div>
+      {hasMoved && (
+        <button type="button" className="room-reset" onClick={() => dispatch(resetLayout())}>
+          配置をリセット
+        </button>
+      )}
     </div>
   );
 }
