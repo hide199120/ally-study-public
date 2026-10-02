@@ -84,6 +84,12 @@ body {
   gap: 12px;
 }
 
+.widgets--right {
+  left: auto;
+  right: clamp(16px, 3vw, 32px);
+  align-items: flex-end;
+}
+
 .widget {
   background: var(--glass);
   border: 1px solid var(--glass-line);

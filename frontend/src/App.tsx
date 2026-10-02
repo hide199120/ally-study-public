@@ -1,6 +1,8 @@
 import Room from "./Room";
 import ClockWidget from "./ClockWidget";
 import BgmButton from "./BgmButton";
+import AccountWidget from "./features/auth/AccountWidget";
+import AuthDialog from "./features/auth/AuthDialog";
 import bgmUrl from "./assets/bgm.mp3"; // src/assets の音源をVite経由で読み込む
 import "./App.css";
 
@@ -23,6 +25,13 @@ export default function App() {
         <ClockWidget />
         <BgmButton src={bgmUrl} />
       </aside>
+
+      {/* 右上のアカウント表示 */}
+      <aside className="widgets widgets--right">
+        <AccountWidget />
+      </aside>
+
+      <AuthDialog />
     </main>
   );
 }
