@@ -1,0 +1,75 @@
+/* ===== 画面の真ん中に大きく置く3Dの部屋 ===== */
+.room-container {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+
+/* 部屋の後ろのふんわりした光 */
+.room-container::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: min(70vw, 80vh);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 140, 0.45), rgba(255, 240, 190, 0.15) 45%, transparent 70%);
+  filter: blur(40px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* 床の下の影 */
+.room-container::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  width: min(52vw, 62vh);
+  height: min(7vw, 8vh);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(52, 88, 46, 0.25), transparent);
+  filter: blur(10px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.room-container canvas {
+  cursor: grab;
+  touch-action: none;
+  outline: none;
+}
+.room-container canvas:active {
+  cursor: grabbing;
+}
+
+/* 操作のヒント（最初にドラッグすると消える） */
+.room-hint {
+  position: absolute;
+  bottom: clamp(16px, 3vw, 32px);
+  right: clamp(16px, 3vw, 32px);
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #3d6b3a;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+.room-hint.is-hidden {
+  opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .room-container::after { display: none; }
+  .room-hint { right: 50%; transform: translateX(50%); }
+}
