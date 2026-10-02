@@ -69,7 +69,30 @@
   opacity: 0;
 }
 
+/* 家具を動かしたあとに出る「配置をリセット」ボタン */
+.room-reset {
+  position: absolute;
+  bottom: clamp(16px, 3vw, 32px);
+  right: clamp(16px, 3vw, 32px);
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #3d6b3a;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.room-reset:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
 @media (max-width: 640px) {
   .room-container::after { display: none; }
-  .room-hint { right: 50%; transform: translateX(50%); }
+  .room-hint, .room-reset { right: 50%; transform: translateX(50%); }
 }
