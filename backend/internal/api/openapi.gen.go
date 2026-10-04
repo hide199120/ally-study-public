@@ -11,16 +11,16 @@ import (
 
 // Defines values for Avatar.
 const (
-	AvatarGirl Avatar = "girl"
 	AvatarBoy  Avatar = "boy"
+	AvatarGirl Avatar = "girl"
 )
 
 // Valid indicates whether the value is a known member of the Avatar enum.
 func (e Avatar) Valid() bool {
 	switch e {
-	case AvatarGirl:
-		return true
 	case AvatarBoy:
+		return true
+	case AvatarGirl:
 		return true
 	default:
 		return false
@@ -29,59 +29,59 @@ func (e Avatar) Valid() bool {
 
 // Defines values for FurnitureId.
 const (
-	FurnitureIdBed        FurnitureId = "bed"
-	FurnitureIdDesk       FurnitureId = "desk"
-	FurnitureIdChair      FurnitureId = "chair"
-	FurnitureIdSideTable  FurnitureId = "sideTable"
-	FurnitureIdRug        FurnitureId = "rug"
-	FurnitureIdPlantRight FurnitureId = "plantRight"
-	FurnitureIdPlantLeft  FurnitureId = "plantLeft"
-	FurnitureIdCat        FurnitureId = "cat"
 	FurnitureIdBackpack   FurnitureId = "backpack"
-	FurnitureIdBookshelf  FurnitureId = "bookshelf"
 	FurnitureIdBeanbag    FurnitureId = "beanbag"
-	FurnitureIdFloorLamp  FurnitureId = "floorLamp"
-	FurnitureIdLowTable   FurnitureId = "lowTable"
+	FurnitureIdBed        FurnitureId = "bed"
+	FurnitureIdBookshelf  FurnitureId = "bookshelf"
 	FurnitureIdCactus     FurnitureId = "cactus"
-	FurnitureIdGuitar     FurnitureId = "guitar"
+	FurnitureIdCat        FurnitureId = "cat"
+	FurnitureIdChair      FurnitureId = "chair"
+	FurnitureIdDesk       FurnitureId = "desk"
 	FurnitureIdFishbowl   FurnitureId = "fishbowl"
+	FurnitureIdFloorLamp  FurnitureId = "floorLamp"
+	FurnitureIdGuitar     FurnitureId = "guitar"
+	FurnitureIdLowTable   FurnitureId = "lowTable"
+	FurnitureIdPlantLeft  FurnitureId = "plantLeft"
+	FurnitureIdPlantRight FurnitureId = "plantRight"
+	FurnitureIdRug        FurnitureId = "rug"
+	FurnitureIdSideTable  FurnitureId = "sideTable"
 	FurnitureIdSofa       FurnitureId = "sofa"
 )
 
 // Valid indicates whether the value is a known member of the FurnitureId enum.
 func (e FurnitureId) Valid() bool {
 	switch e {
-	case FurnitureIdBed:
-		return true
-	case FurnitureIdDesk:
-		return true
-	case FurnitureIdChair:
-		return true
-	case FurnitureIdSideTable:
-		return true
-	case FurnitureIdRug:
-		return true
-	case FurnitureIdPlantRight:
-		return true
-	case FurnitureIdPlantLeft:
-		return true
-	case FurnitureIdCat:
-		return true
 	case FurnitureIdBackpack:
-		return true
-	case FurnitureIdBookshelf:
 		return true
 	case FurnitureIdBeanbag:
 		return true
-	case FurnitureIdFloorLamp:
+	case FurnitureIdBed:
 		return true
-	case FurnitureIdLowTable:
+	case FurnitureIdBookshelf:
 		return true
 	case FurnitureIdCactus:
 		return true
-	case FurnitureIdGuitar:
+	case FurnitureIdCat:
+		return true
+	case FurnitureIdChair:
+		return true
+	case FurnitureIdDesk:
 		return true
 	case FurnitureIdFishbowl:
+		return true
+	case FurnitureIdFloorLamp:
+		return true
+	case FurnitureIdGuitar:
+		return true
+	case FurnitureIdLowTable:
+		return true
+	case FurnitureIdPlantLeft:
+		return true
+	case FurnitureIdPlantRight:
+		return true
+	case FurnitureIdRug:
+		return true
+	case FurnitureIdSideTable:
 		return true
 	case FurnitureIdSofa:
 		return true
@@ -110,11 +110,11 @@ func (e HealthStatus) Valid() bool {
 
 // Defines values for Wallpaper.
 const (
-	WallpaperMeadow    Wallpaper = "meadow"
+	WallpaperBotanical Wallpaper = "botanical"
 	WallpaperCream     Wallpaper = "cream"
 	WallpaperDots      Wallpaper = "dots"
-	WallpaperBotanical Wallpaper = "botanical"
 	WallpaperGingham   Wallpaper = "gingham"
+	WallpaperMeadow    Wallpaper = "meadow"
 	WallpaperNight     Wallpaper = "night"
 	WallpaperWood      Wallpaper = "wood"
 )
@@ -122,15 +122,15 @@ const (
 // Valid indicates whether the value is a known member of the Wallpaper enum.
 func (e Wallpaper) Valid() bool {
 	switch e {
-	case WallpaperMeadow:
+	case WallpaperBotanical:
 		return true
 	case WallpaperCream:
 		return true
 	case WallpaperDots:
 		return true
-	case WallpaperBotanical:
-		return true
 	case WallpaperGingham:
+		return true
+	case WallpaperMeadow:
 		return true
 	case WallpaperNight:
 		return true
@@ -142,6 +142,8 @@ func (e Wallpaper) Valid() bool {
 }
 
 // Avatar 部屋にいる住人（girl=女の子, boy=男の子）
+//
+// Example: girl
 type Avatar string
 
 // Credentials defines model for Credentials.
@@ -169,20 +171,30 @@ type Error struct {
 }
 
 // FurnitureId 動かせる家具の種類
+//
+// Example: bed
 type FurnitureId string
 
 // FurniturePlacement defines model for FurniturePlacement.
 type FurniturePlacement struct {
 	// Id 動かせる家具の種類
+	//
+	// Example: bed
 	Id FurnitureId `json:"id"`
 
 	// Placed true=部屋に出している / false=バッグの中
+	//
+	// Example: true
 	Placed bool `json:"placed"`
 
 	// X 初期位置から床の上でどれだけ動かしたか（x方向）
+	//
+	// Example: -0.5
 	X float64 `json:"x"`
 
 	// Z 初期位置から床の上でどれだけ動かしたか（z方向）
+	//
+	// Example: 0.3
 	Z float64 `json:"z"`
 }
 
@@ -198,6 +210,8 @@ type HealthStatus string
 // Room ユーザーごとの部屋の設定
 type Room struct {
 	// Avatar 部屋にいる住人（girl=女の子, boy=男の子）
+	//
+	// Example: girl
 	Avatar Avatar `json:"avatar"`
 
 	// Furniture 家具ごとの状態（部屋に出しているか、バッグの中か）と位置。同じ家具は1回だけ
@@ -211,6 +225,9 @@ type Room struct {
 	// - gingham: ギンガムチェック
 	// - night: 星空
 	// - wood: 板張り
+	//
+	//
+	// Example: meadow
 	Wallpaper Wallpaper `json:"wallpaper"`
 }
 
@@ -234,6 +251,8 @@ type User struct {
 // - gingham: ギンガムチェック
 // - night: 星空
 // - wood: 板張り
+//
+// Example: meadow
 type Wallpaper string
 
 // BadRequest defines model for BadRequest.

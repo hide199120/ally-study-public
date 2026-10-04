@@ -1,0 +1,83 @@
+# PR を出したときと main にマージされたときに、フロントとバックエンドのチェックを自動で走らせる
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# 同じブランチで新しく push されたら、古い実行は止める（無駄な実行時間を減らす）
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# コードを読むだけなので、権限は最小限にする
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (lint / test / build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 依存ライブラリをインストール
+        run: npm ci
+
+      - name: Lint（ESLint）
+        run: npm run lint
+
+      - name: テスト（Jest）
+        run: npm test
+
+      - name: 型チェックとビルド（tsc + Vite）
+        run: npm run build
+
+  backend:
+    name: Backend (fmt / vet / test / generate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: フォーマットの確認（gofmt）
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt が必要なファイルがあります:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: 静的解析（go vet）
+        run: go vet ./...
+
+      - name: テスト（go test）
+        run: go test ./...
+
+      - name: OpenAPI から生成したコードが最新か確認
+        run: |
+          go generate ./...
+          if ! git diff --exit-code; then
+            echo "openapi.gen.go が api/openapi.yaml と合っていません。backend で go generate ./... を実行してコミットしてください"
+            exit 1
+          fi
