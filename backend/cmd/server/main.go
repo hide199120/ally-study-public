@@ -38,10 +38,12 @@ func main() {
 		&repository.SessionRepository{DB: db},
 	)
 	room := service.NewRoomService(&repository.RoomRepository{DB: db})
+	study := service.NewStudyService(&repository.StudyRepository{DB: db})
 	server := &handler.Server{
 		DB:     db,
 		Auth:   auth,
 		Room:   room,
+		Study:  study,
 		Cookie: handler.CookieConfig{Secure: cfg.CookieSecure},
 	}
 	api.RegisterHandlersWithOptions(r, server, api.GinServerOptions{BaseURL: "/api"})

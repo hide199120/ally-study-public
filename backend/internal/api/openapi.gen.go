@@ -90,6 +90,24 @@ func (e FurnitureId) Valid() bool {
 	}
 }
 
+// Defines values for GoalKind.
+const (
+	GoalKindCertification GoalKind = "certification"
+	GoalKindTask          GoalKind = "task"
+)
+
+// Valid indicates whether the value is a known member of the GoalKind enum.
+func (e GoalKind) Valid() bool {
+	switch e {
+	case GoalKindCertification:
+		return true
+	case GoalKindTask:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for HealthStatus.
 const (
 	HealthStatusOk          HealthStatus = "ok"
@@ -102,6 +120,24 @@ func (e HealthStatus) Valid() bool {
 	case HealthStatusOk:
 		return true
 	case HealthStatusUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StudyMode.
+const (
+	StudyModePomodoro  StudyMode = "pomodoro"
+	StudyModeStopwatch StudyMode = "stopwatch"
+)
+
+// Valid indicates whether the value is a known member of the StudyMode enum.
+func (e StudyMode) Valid() bool {
+	switch e {
+	case StudyModePomodoro:
+		return true
+	case StudyModeStopwatch:
 		return true
 	default:
 		return false
@@ -198,6 +234,11 @@ type FurniturePlacement struct {
 	Z float64 `json:"z"`
 }
 
+// GoalKind 目標の種類（certification=資格, task=タスク）
+//
+// Example: certification
+type GoalKind string
+
 // Health defines model for Health.
 type Health struct {
 	// Status Example: ok
@@ -206,6 +247,11 @@ type Health struct {
 
 // HealthStatus Example: ok
 type HealthStatus string
+
+// LocalDate ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+//
+// Example: 2026-10-12
+type LocalDate = string
 
 // Room ユーザーごとの部屋の設定
 type Room struct {
@@ -229,6 +275,94 @@ type Room struct {
 	//
 	// Example: meadow
 	Wallpaper Wallpaper `json:"wallpaper"`
+}
+
+// StudyDay defines model for StudyDay.
+type StudyDay struct {
+	// Date ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	Date LocalDate `json:"date"`
+
+	// Minutes その日の勉強時間の合計（分）
+	//
+	// Example: 95
+	Minutes int `json:"minutes"`
+}
+
+// StudyGoal defines model for StudyGoal.
+type StudyGoal struct {
+	// Done 達成したか
+	//
+	// Example: false
+	Done bool `json:"done"`
+
+	// DueDate ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	DueDate *LocalDate `json:"dueDate,omitempty"`
+
+	// Id 目標のID（フロントで作る）
+	//
+	// Example: 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+	Id string `json:"id"`
+
+	// Kind 目標の種類（certification=資格, task=タスク）
+	//
+	// Example: certification
+	Kind GoalKind `json:"kind"`
+
+	// Title Example: AWS 認定 DevOps Engineer - Professional
+	Title string `json:"title"`
+}
+
+// StudyGoals defines model for StudyGoals.
+type StudyGoals struct {
+	// Goals 目標の一覧（表示順）
+	Goals []StudyGoal `json:"goals"`
+}
+
+// StudyMode どのタイマーで勉強したか（pomodoro=ポモドーロ, stopwatch=ストップウォッチ）
+//
+// Example: pomodoro
+type StudyMode string
+
+// StudyOverview ユーザーの学習記録
+type StudyOverview struct {
+	// Days 日ごとの勉強時間（勉強した日だけ。日付の古い順）
+	Days  []StudyDay  `json:"days"`
+	Goals []StudyGoal `json:"goals"`
+
+	// WeeklyGoalMinutes 1週間（月〜日）の目標の勉強時間（分）
+	//
+	// Example: 600
+	WeeklyGoalMinutes int `json:"weeklyGoalMinutes"`
+}
+
+// StudySessionInput defines model for StudySessionInput.
+type StudySessionInput struct {
+	// Date ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	Date LocalDate `json:"date"`
+
+	// Minutes 勉強した時間（分）
+	//
+	// Example: 25
+	Minutes int `json:"minutes"`
+
+	// Mode どのタイマーで勉強したか（pomodoro=ポモドーロ, stopwatch=ストップウォッチ）
+	//
+	// Example: pomodoro
+	Mode StudyMode `json:"mode"`
+}
+
+// StudySettings defines model for StudySettings.
+type StudySettings struct {
+	// WeeklyGoalMinutes 1週間（月〜日）の目標の勉強時間（分）。0 は目標なし
+	//
+	// Example: 600
+	WeeklyGoalMinutes int `json:"weeklyGoalMinutes"`
 }
 
 // User defines model for User.
@@ -270,6 +404,15 @@ type SignupJSONRequestBody = Credentials
 // UpdateMyRoomJSONRequestBody defines body for UpdateMyRoom for application/json ContentType.
 type UpdateMyRoomJSONRequestBody = Room
 
+// UpdateStudyGoalsJSONRequestBody defines body for UpdateStudyGoals for application/json ContentType.
+type UpdateStudyGoalsJSONRequestBody = StudyGoals
+
+// AddStudySessionJSONRequestBody defines body for AddStudySession for application/json ContentType.
+type AddStudySessionJSONRequestBody = StudySessionInput
+
+// UpdateStudySettingsJSONRequestBody defines body for UpdateStudySettings for application/json ContentType.
+type UpdateStudySettingsJSONRequestBody = StudySettings
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Login ログイン
@@ -293,6 +436,18 @@ type ServerInterface interface {
 	// UpdateMyRoom ログイン中のユーザーの部屋を保存
 	// (PUT /me/room)
 	UpdateMyRoom(c *gin.Context)
+	// GetMyStudy ログイン中のユーザーの学習記録を取得
+	// (GET /me/study)
+	GetMyStudy(c *gin.Context)
+	// UpdateStudyGoals 資格やタスクの目標を保存
+	// (PUT /me/study/goals)
+	UpdateStudyGoals(c *gin.Context)
+	// AddStudySession 勉強した時間を記録
+	// (POST /me/study/sessions)
+	AddStudySession(c *gin.Context)
+	// UpdateStudySettings 週の目標時間を保存
+	// (PUT /me/study/settings)
+	UpdateStudySettings(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -395,6 +550,58 @@ func (siw *ServerInterfaceWrapper) UpdateMyRoom(c *gin.Context) {
 	siw.Handler.UpdateMyRoom(c)
 }
 
+// GetMyStudy operation middleware
+func (siw *ServerInterfaceWrapper) GetMyStudy(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMyStudy(c)
+}
+
+// UpdateStudyGoals operation middleware
+func (siw *ServerInterfaceWrapper) UpdateStudyGoals(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateStudyGoals(c)
+}
+
+// AddStudySession operation middleware
+func (siw *ServerInterfaceWrapper) AddStudySession(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddStudySession(c)
+}
+
+// UpdateStudySettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateStudySettings(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateStudySettings(c)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -429,4 +636,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
 	router.GET(options.BaseURL+"/me/room", wrapper.GetMyRoom)
 	router.PUT(options.BaseURL+"/me/room", wrapper.UpdateMyRoom)
+	router.GET(options.BaseURL+"/me/study", wrapper.GetMyStudy)
+	router.POST(options.BaseURL+"/me/study/sessions", wrapper.AddStudySession)
+	router.PUT(options.BaseURL+"/me/study/settings", wrapper.UpdateStudySettings)
+	router.PUT(options.BaseURL+"/me/study/goals", wrapper.UpdateStudyGoals)
 }

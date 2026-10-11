@@ -21,6 +21,8 @@ tags:
     description: ユーザー情報
   - name: room
     description: 部屋の模様替え（家具の配置・バッグ・壁紙・住人）
+  - name: study
+    description: 学習記録（勉強時間・週の目標・資格やタスクの目標）
 
 paths:
   /health:
@@ -185,6 +187,97 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Room"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me/study:
+    get:
+      tags: [study]
+      operationId: getMyStudy
+      summary: ログイン中のユーザーの学習記録を取得
+      description: |
+        週の目標時間、資格やタスクの目標、日ごとの勉強時間を返します。
+        日ごとの勉強時間は、直近 60 日ぶんを返します（勉強した日だけ）。
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me/study/sessions:
+    post:
+      tags: [study]
+      operationId: addStudySession
+      summary: 勉強した時間を記録
+      description: |
+        タイマーで勉強した時間を1回分記録し、その日の合計を返します。
+        日付はブラウザの日付（ユーザーのタイムゾーン）で送ります。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudySessionInput"
+      responses:
+        "201":
+          description: 記録成功（その日の合計）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyDay"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me/study/settings:
+    put:
+      tags: [study]
+      operationId: updateStudySettings
+      summary: 週の目標時間を保存
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudySettings"
+      responses:
+        "200":
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudySettings"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /me/study/goals:
+    put:
+      tags: [study]
+      operationId: updateStudyGoals
+      summary: 資格やタスクの目標を保存
+      description: 目標の一覧を丸ごと置き換えます（件数が少ないため、一覧ごと保存する）。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudyGoals"
+      responses:
+        "200":
+          description: 保存成功（保存後の一覧）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyGoals"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -367,3 +460,112 @@ components:
           minimum: -6
           maximum: 6
           example: 0.3
+
+    StudyOverview:
+      type: object
+      description: ユーザーの学習記録
+      required: [weeklyGoalMinutes, goals, days]
+      properties:
+        weeklyGoalMinutes:
+          type: integer
+          description: 1週間（月〜日）の目標の勉強時間（分）
+          example: 600
+        goals:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudyGoal"
+        days:
+          type: array
+          description: 日ごとの勉強時間（勉強した日だけ。日付の古い順）
+          items:
+            $ref: "#/components/schemas/StudyDay"
+
+    StudyDay:
+      type: object
+      required: [date, minutes]
+      properties:
+        date:
+          $ref: "#/components/schemas/LocalDate"
+        minutes:
+          type: integer
+          description: その日の勉強時間の合計（分）
+          example: 95
+
+    LocalDate:
+      type: string
+      description: ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+      pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      example: "2026-10-12"
+
+    StudyMode:
+      type: string
+      description: どのタイマーで勉強したか（pomodoro=ポモドーロ, stopwatch=ストップウォッチ）
+      enum: [pomodoro, stopwatch]
+      example: pomodoro
+
+    StudySessionInput:
+      type: object
+      required: [date, minutes, mode]
+      properties:
+        date:
+          $ref: "#/components/schemas/LocalDate"
+        minutes:
+          type: integer
+          description: 勉強した時間（分）
+          minimum: 1
+          maximum: 720
+          example: 25
+        mode:
+          $ref: "#/components/schemas/StudyMode"
+
+    StudySettings:
+      type: object
+      required: [weeklyGoalMinutes]
+      properties:
+        weeklyGoalMinutes:
+          type: integer
+          description: 1週間（月〜日）の目標の勉強時間（分）。0 は目標なし
+          minimum: 0
+          maximum: 6000
+          example: 600
+
+    GoalKind:
+      type: string
+      description: 目標の種類（certification=資格, task=タスク）
+      enum: [certification, task]
+      example: certification
+
+    StudyGoal:
+      type: object
+      required: [id, kind, title, done]
+      properties:
+        id:
+          type: string
+          description: 目標のID（フロントで作る）
+          minLength: 1
+          maxLength: 36
+          example: 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+        kind:
+          $ref: "#/components/schemas/GoalKind"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 50
+          example: AWS 認定 DevOps Engineer - Professional
+        dueDate:
+          $ref: "#/components/schemas/LocalDate"
+        done:
+          type: boolean
+          description: 達成したか
+          example: false
+
+    StudyGoals:
+      type: object
+      required: [goals]
+      properties:
+        goals:
+          type: array
+          description: 目標の一覧（表示順）
+          maxItems: 30
+          items:
+            $ref: "#/components/schemas/StudyGoal"
