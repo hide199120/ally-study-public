@@ -8,7 +8,7 @@ export type OutsideKind = 'forest' | 'night' | 'rain' | 'sunset' | 'city'
 export type ParticleKind = 'fireflies' | 'dust' | 'none'
 
 /** 家具のセット（テーマごとに見た目が変わる） */
-export type FurnitureSet = 'natural' | 'hideout'
+export type FurnitureSet = 'natural' | 'hideout' | 'rain' | 'countryside' | 'city'
 
 /** 壁などを色で染める面の照明（RectAreaLight） */
 export type Wash = { color: string; intensity: number; position: [number, number, number]; lookAt: [number, number, number]; size: [number, number] }
@@ -185,7 +185,7 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'dark',
     },
     scene: {
-      furniture: 'natural',
+      furniture: 'rain',
       washes: [],
       envIntensity: 0.2,
       ao: 1.8,
@@ -224,7 +224,7 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'light',
     },
     scene: {
-      furniture: 'natural',
+      furniture: 'countryside',
       washes: [],
       envIntensity: 0.35,
       ao: 1.6,
@@ -263,7 +263,7 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'dark',
     },
     scene: {
-      furniture: 'natural',
+      furniture: 'city',
       washes: [{ color: '#b56cff', intensity: 4, position: [1.3, 1.8, -2.5], lookAt: [1.3, 1.0, 0], size: [2, 2] }],
       envIntensity: 0.2,
       ao: 1.8,

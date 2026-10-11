@@ -3,9 +3,10 @@ import type { ReactNode } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { RoundedBox } from "@react-three/drei";
-import { Glow, ShadowGroup } from "./shared";
-import { beveledShape, roundedSlab, softBox } from "./geometry";
-import { makeTexture, type V3 } from "./utils";
+import { Glow, ShadowGroup } from "../shared";
+import { beveledShape, roundedSlab, softBox } from "../geometry";
+import { makeTexture, type V3 } from "../utils";
+import { Emissive, Fabric, Matte, Wood } from "./common";
 
 /* =====================================================
    「秘密基地」テーマの家具。
@@ -24,25 +25,9 @@ const COL = {
   pink: "#ff4f9a",
 };
 
-/** 布（少しだけ光沢のある起毛） */
-function Fabric({ color, sheen = 0.6 }: { color: string; sheen?: number }) {
-  return <meshPhysicalMaterial color={color} roughness={0.92} sheen={sheen} sheenRoughness={0.8} sheenColor="#ffffff" />;
-}
-/** 木（つや消しの塗装） */
-function Wood({ color = COL.oak }: { color?: string }) {
-  return <meshPhysicalMaterial color={color} roughness={0.55} clearcoat={0.25} clearcoatRoughness={0.6} />;
-}
-/** つや消しの樹脂・塗装 */
-function Matte({ color, roughness = 0.6 }: { color: string; roughness?: number }) {
-  return <meshStandardMaterial color={color} roughness={roughness} />;
-}
-/** 光る素材（ブルームで光がにじむ） */
-function Emissive({ color, strength = 2 }: { color: string; strength?: number }) {
-  return <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(strength)} toneMapped={false} />;
-}
-
-function useHideoutTextures() {
-  return useMemo(() => {
+/** テクスチャは一度だけ作って、同じテーマの家具で使い回す */
+let cached: ReturnType<typeof buildHideoutTextures> | null = null;
+function buildHideoutTextures() {
     // モニターの画面（夕焼けのゲーム画面とウィンドウ）
     const screen = makeTexture(1024, 400, (g, w, h) => {
       const sky = g.createLinearGradient(0, 0, 0, h);
@@ -153,7 +138,9 @@ function useHideoutTextures() {
     });
 
     return { screen, keys, neon, poster, rug };
-  }, []);
+}
+function useHideoutTextures() {
+  return useMemo(() => (cached ??= buildHideoutTextures()), []);
 }
 
 /* ---------- デスク（左の壁ぞい） ---------- */
@@ -536,7 +523,7 @@ export function HideoutSofa() {
 /* ---------- 本棚（左の壁ぞい。上にぬいぐるみ） ---------- */
 const BOOK_COLORS = ["#e76f51", "#2a9d8f", "#e9c46a", "#264653", "#f4a261", "#8ab17d", "#b56576", "#6d6875", "#4a6fa5", "#f1faee"];
 
-function Plushie({ position, color, rotY = 0, scale = 1, ears = "round" }: { position: V3; color: string; rotY?: number; scale?: number; ears?: "round" | "tall" }) {
+export function Plushie({ position, color, rotY = 0, scale = 1, ears = "round" }: { position: V3; color: string; rotY?: number; scale?: number; ears?: "round" | "tall" }) {
   return (
     <group position={position} rotation={[0, rotY, 0]} scale={scale}>
       <mesh position={[0, 0.06, 0]} scale={[1, 0.9, 0.85]}>
