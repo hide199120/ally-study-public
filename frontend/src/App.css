@@ -72,22 +72,72 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ===== 左上のウィジェット群 ===== */
+/* ===== レイアウト =====
+   広い画面：左の列・3Dの部屋・右の列の3列（部屋は真ん中のすき間いっぱい）
+   狭い画面：部屋を上に、ウィジェットをその下に並べてページごとスクロール */
+.layout {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(280px, 310px) minmax(0, 1fr) minmax(300px, 340px);
+  grid-template-areas: "left stage right";
+}
+.layout__stage {
+  grid-area: stage;
+  position: relative;
+  min-width: 0;
+}
+
 .widgets {
-  position: absolute;
-  top: clamp(16px, 3vw, 32px);
-  left: clamp(16px, 3vw, 32px);
   z-index: 20;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
+  min-height: 0;
+  /* 縦に収まらないときは列の中だけスクロール。影が切れないよう内側に余白をとる */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(16px, 2.4vw, 28px) clamp(16px, 1.6vw, 22px);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(61, 107, 58, 0.25) transparent;
+}
+.widgets--left { grid-area: left; }
+.widgets--right {
+  grid-area: right;
+  align-items: flex-end;
+}
+.widgets > .clock { align-self: stretch; }
+
+@media (max-width: 1099px) {
+  .page {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    overflow-x: hidden;
+  }
+  .page__bg, .page__veil { position: fixed; }
+  .layout {
+    height: auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "stage stage"
+      "left right";
+  }
+  .layout__stage { height: 72dvh; min-height: 420px; }
+  .widgets { overflow: visible; padding-top: 0; }
+  .widgets--right { align-items: stretch; }
+  .widgets--right > .account { align-self: flex-end; }
 }
 
-.widgets--right {
-  left: auto;
-  right: clamp(16px, 3vw, 32px);
-  align-items: flex-end;
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "stage" "left" "right";
+  }
+  .layout__stage { height: 64dvh; min-height: 360px; }
+  .widgets { align-items: stretch; padding: 0 16px 16px; }
+  .widgets--right > .account { order: -1; }
 }
 
 .widget {

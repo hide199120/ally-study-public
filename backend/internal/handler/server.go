@@ -31,6 +31,14 @@ type RoomService interface {
 	Update(ctx context.Context, userID int64, room *model.Room) (*model.Room, error)
 }
 
+// StudyService は学習記録の処理（service.StudyService が満たす）。
+type StudyService interface {
+	Overview(ctx context.Context, userID int64) (*model.StudyOverview, error)
+	AddSession(ctx context.Context, userID int64, session model.StudySession) (*model.StudyDay, error)
+	UpdateWeeklyGoal(ctx context.Context, userID int64, minutes int) error
+	UpdateGoals(ctx context.Context, userID int64, goals []model.StudyGoal) ([]model.StudyGoal, error)
+}
+
 // CookieConfig はセッションCookieの設定。
 type CookieConfig struct {
 	// Secure を true にすると HTTPS のときだけ Cookie が送られる（本番では true にする）
@@ -42,6 +50,7 @@ type Server struct {
 	DB     Pinger
 	Auth   AuthService
 	Room   RoomService
+	Study  StudyService
 	Cookie CookieConfig
 }
 

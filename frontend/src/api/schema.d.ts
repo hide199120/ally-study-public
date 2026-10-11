@@ -124,6 +124,85 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * ログイン中のユーザーの学習記録を取得
+         * @description 週の目標時間、資格やタスクの目標、日ごとの勉強時間を返します。
+         *     日ごとの勉強時間は、直近 60 日ぶんを返します（勉強した日だけ）。
+         */
+        get: operations["getMyStudy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/study/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 勉強した時間を記録
+         * @description タイマーで勉強した時間を1回分記録し、その日の合計を返します。
+         *     日付はブラウザの日付（ユーザーのタイムゾーン）で送ります。
+         */
+        post: operations["addStudySession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/study/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** 週の目標時間を保存 */
+        put: operations["updateStudySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/study/goals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 資格やタスクの目標を保存
+         * @description 目標の一覧を丸ごと置き換えます（件数が少ないため、一覧ごと保存する）。
+         */
+        put: operations["updateStudyGoals"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -222,6 +301,78 @@ export interface components {
              * @example 0.3
              */
             z: number;
+        };
+        /** @description ユーザーの学習記録 */
+        StudyOverview: {
+            /**
+             * @description 1週間（月〜日）の目標の勉強時間（分）
+             * @example 600
+             */
+            weeklyGoalMinutes: number;
+            goals: components["schemas"]["StudyGoal"][];
+            /** @description 日ごとの勉強時間（勉強した日だけ。日付の古い順） */
+            days: components["schemas"]["StudyDay"][];
+        };
+        StudyDay: {
+            date: components["schemas"]["LocalDate"];
+            /**
+             * @description その日の勉強時間の合計（分）
+             * @example 95
+             */
+            minutes: number;
+        };
+        /**
+         * @description ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+         * @example 2026-10-12
+         */
+        LocalDate: string;
+        /**
+         * @description どのタイマーで勉強したか（pomodoro=ポモドーロ, stopwatch=ストップウォッチ）
+         * @example pomodoro
+         * @enum {string}
+         */
+        StudyMode: "pomodoro" | "stopwatch";
+        StudySessionInput: {
+            date: components["schemas"]["LocalDate"];
+            /**
+             * @description 勉強した時間（分）
+             * @example 25
+             */
+            minutes: number;
+            mode: components["schemas"]["StudyMode"];
+        };
+        StudySettings: {
+            /**
+             * @description 1週間（月〜日）の目標の勉強時間（分）。0 は目標なし
+             * @example 600
+             */
+            weeklyGoalMinutes: number;
+        };
+        /**
+         * @description 目標の種類（certification=資格, task=タスク）
+         * @example certification
+         * @enum {string}
+         */
+        GoalKind: "certification" | "task";
+        StudyGoal: {
+            /**
+             * @description 目標のID（フロントで作る）
+             * @example 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+             */
+            id: string;
+            kind: components["schemas"]["GoalKind"];
+            /** @example AWS 認定 DevOps Engineer - Professional */
+            title: string;
+            dueDate?: components["schemas"]["LocalDate"];
+            /**
+             * @description 達成したか
+             * @example false
+             */
+            done: boolean;
+        };
+        StudyGoals: {
+            /** @description 目標の一覧（表示順） */
+            goals: components["schemas"]["StudyGoal"][];
         };
     };
     responses: {
@@ -470,6 +621,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Room"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getMyStudy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    addStudySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudySessionInput"];
+            };
+        };
+        responses: {
+            /** @description 記録成功（その日の合計） */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyDay"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateStudySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudySettings"];
+            };
+        };
+        responses: {
+            /** @description 保存成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudySettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateStudyGoals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StudyGoals"];
+            };
+        };
+        responses: {
+            /** @description 保存成功（保存後の一覧） */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudyGoals"];
                 };
             };
             400: components["responses"]["BadRequest"];

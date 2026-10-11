@@ -3,6 +3,7 @@ import { authApi } from '../features/auth/authApi'
 import { authDialogReducer } from '../features/auth/authDialogSlice'
 import { roomLayoutReducer } from '../features/room/roomLayoutSlice'
 import { soundReducer } from '../features/sound/soundSlice'
+import { studyReducer } from '../features/study/studySlice'
 
 export function makeStore() {
   return configureStore({
@@ -10,6 +11,7 @@ export function makeStore() {
       authDialog: authDialogReducer,
       roomLayout: roomLayoutReducer,
       sound: soundReducer,
+      study: studyReducer,
       [authApi.reducerPath]: authApi.reducer,
     },
     middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(authApi.middleware),
