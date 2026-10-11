@@ -40,6 +40,20 @@ func (f *fakeStudyStore) AddSession(_ context.Context, userID int64, s model.Stu
 	return total, nil
 }
 
+func (f *fakeStudyStore) DayStats(_ context.Context, userID int64, date string) (int, int, error) {
+	if f.err != nil {
+		return 0, 0, f.err
+	}
+	minutes, count := 0, 0
+	for _, x := range f.sessions[userID] {
+		if x.Date == date {
+			minutes += x.Minutes
+			count++
+		}
+	}
+	return minutes, count, nil
+}
+
 func (f *fakeStudyStore) DailyTotals(_ context.Context, userID int64, from string) ([]model.StudyDay, error) {
 	f.gotFrom = from
 	if f.err != nil {
@@ -274,5 +288,27 @@ func TestStudyService_StoreErrors(t *testing.T) {
 	}
 	if _, err := s.UpdateGoals(ctx, 1, nil); !errors.Is(err, boom) {
 		t.Errorf("UpdateGoals() error = %v", err)
+	}
+}
+
+func TestStudyService_AddSession_DailyCap(t *testing.T) {
+	store := newFakeStudyStore()
+	svc := NewStudyService(store)
+	svc.now = func() time.Time { return time.Date(2026, 10, 12, 3, 0, 0, 0, time.UTC) }
+	ctx := context.Background()
+
+	for i := 0; i < 2; i++ {
+		if _, err := svc.AddSession(ctx, 1, model.StudySession{Date: "2026-10-12", Minutes: 720, Mode: "stopwatch"}); err != nil {
+			t.Fatalf("24時間ちょうどまでは記録できるはず: %v", err)
+		}
+	}
+	_, err := svc.AddSession(ctx, 1, model.StudySession{Date: "2026-10-12", Minutes: 1, Mode: "pomodoro"})
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("24時間を超える記録はエラーのはず: %v", err)
+	}
+	// 別の日なら記録できる
+	if _, err := svc.AddSession(ctx, 1, model.StudySession{Date: "2026-10-11", Minutes: 30, Mode: "pomodoro"}); err != nil {
+		t.Fatal(err)
 	}
 }

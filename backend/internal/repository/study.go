@@ -35,6 +35,18 @@ func (r *StudyRepository) AddSession(ctx context.Context, userID int64, s model.
 	return total, nil
 }
 
+// DayStats はその日の勉強時間の合計（分）と記録の回数を返す。
+func (r *StudyRepository) DayStats(ctx context.Context, userID int64, date string) (int, int, error) {
+	var minutes, count int
+	if err := r.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(minutes), 0), COUNT(*) FROM study_sessions WHERE user_id = ? AND study_date = ?`,
+		userID, date,
+	).Scan(&minutes, &count); err != nil {
+		return 0, 0, fmt.Errorf("day stats: %w", err)
+	}
+	return minutes, count, nil
+}
+
 // DailyTotals は from（YYYY-MM-DD）以降の、日ごとの勉強時間の合計を日付の古い順に返す。
 // 勉強していない日は含まない。
 func (r *StudyRepository) DailyTotals(ctx context.Context, userID int64, from string) ([]model.StudyDay, error) {

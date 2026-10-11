@@ -14,6 +14,9 @@ import (
 const (
 	// 1回に記録できる勉強時間の上限（12時間）
 	maxSessionMinutes = 720
+	// 1日に記録できる勉強時間の合計の上限（24時間）と、記録の回数の上限
+	maxDailyMinutes  = 1440
+	maxDailySessions = 100
 	// 週の目標時間の上限（100時間）
 	maxWeeklyGoalMinutes = 6000
 	maxGoals             = 30
@@ -26,6 +29,8 @@ const (
 // StudyStore は学習記録の保存先（repository.StudyRepository が満たす）。
 type StudyStore interface {
 	AddSession(ctx context.Context, userID int64, s model.StudySession) (int, error)
+	// DayStats はその日の勉強時間の合計（分）と、記録の回数を返す
+	DayStats(ctx context.Context, userID int64, date string) (minutes int, count int, err error)
 	DailyTotals(ctx context.Context, userID int64, from string) ([]model.StudyDay, error)
 	WeeklyGoal(ctx context.Context, userID int64) (int, error)
 	SaveWeeklyGoal(ctx context.Context, userID int64, minutes int) error
@@ -73,6 +78,17 @@ func (s *StudyService) AddSession(ctx context.Context, userID int64, session mod
 	}
 	if session.Minutes < 1 || session.Minutes > maxSessionMinutes {
 		return nil, &ValidationError{Message: "勉強時間は1〜720分で記録してください"}
+	}
+	// 1日の合計が24時間を超える記録や、極端に多い回数の記録は受け付けない（DBを埋められないように）
+	minutes, count, err := s.store.DayStats(ctx, userID, session.Date)
+	if err != nil {
+		return nil, fmt.Errorf("day stats: %w", err)
+	}
+	if minutes+session.Minutes > maxDailyMinutes {
+		return nil, &ValidationError{Message: "1日に記録できるのは24時間までです"}
+	}
+	if count >= maxDailySessions {
+		return nil, &ValidationError{Message: "この日はこれ以上記録できません"}
 	}
 	total, err := s.store.AddSession(ctx, userID, session)
 	if err != nil {

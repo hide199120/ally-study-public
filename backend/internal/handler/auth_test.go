@@ -23,6 +23,13 @@ type fakeAuthService struct {
 
 	validToken    string // Authenticate で受け付けるトークン
 	loggedOutWith string // Logout に渡されたトークン
+	deletedWith   string // DeleteAccount に渡されたパスワード
+	deleteErr     error
+}
+
+func (f *fakeAuthService) DeleteAccount(_ context.Context, _ *model.User, password string) error {
+	f.deletedWith = password
+	return f.deleteErr
 }
 
 func (f *fakeAuthService) Signup(context.Context, string, string) (*model.User, *service.Session, error) {
@@ -221,6 +228,52 @@ func TestServer_Logout(t *testing.T) {
 		w := doRequest(&Server{Auth: auth}, http.MethodPost, "/api/auth/logout", "")
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+		}
+	})
+}
+
+func deleteJSON(s *Server, path, token, body string) *httptest.ResponseRecorder {
+	r := newTestRouter(s)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: token})
+	r.ServeHTTP(w, req)
+	return w
+}
+
+func TestServer_DeleteMe(t *testing.T) {
+	t.Run("パスワードが合えば削除して Cookie を消す", func(t *testing.T) {
+		auth := &fakeAuthService{user: testUser, validToken: "valid-token"}
+		w := deleteJSON(&Server{Auth: auth}, "/api/me", "valid-token", `{"password":"password1234"}`)
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204", w.Code)
+		}
+		if auth.deletedWith != "password1234" {
+			t.Errorf("DeleteAccount に渡したパスワード = %q", auth.deletedWith)
+		}
+		if !strings.Contains(w.Header().Get("Set-Cookie"), "Max-Age=0") {
+			t.Errorf("Cookie を消していない: %q", w.Header().Get("Set-Cookie"))
+		}
+	})
+	t.Run("パスワードが違えば 400", func(t *testing.T) {
+		auth := &fakeAuthService{user: testUser, validToken: "valid-token", deleteErr: service.ErrWrongPassword}
+		w := deleteJSON(&Server{Auth: auth}, "/api/me", "valid-token", `{"password":"nope"}`)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d, want 400", w.Code)
+		}
+	})
+	t.Run("パスワードが空なら 400", func(t *testing.T) {
+		auth := &fakeAuthService{user: testUser, validToken: "valid-token"}
+		w := deleteJSON(&Server{Auth: auth}, "/api/me", "valid-token", `{}`)
+		if w.Code != http.StatusBadRequest || auth.deletedWith != "" {
+			t.Fatalf("status = %d, deleted = %q", w.Code, auth.deletedWith)
+		}
+	})
+	t.Run("ログインしていなければ 401", func(t *testing.T) {
+		w := deleteJSON(&Server{Auth: &fakeAuthService{}}, "/api/me", "", `{"password":"x"}`)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("status = %d, want 401", w.Code)
 		}
 	})
 }

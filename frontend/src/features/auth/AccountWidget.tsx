@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useAppDispatch } from '../../app/hooks'
 import { useGetMeQuery, useLogoutMutation } from './authApi'
 import { openAuthDialog } from './authDialogSlice'
+import DeleteAccountDialog from './DeleteAccountDialog'
 import './auth.css'
 
 /** 右上のアカウント表示。未ログインならログインボタン、ログイン中ならユーザー名とログアウトボタン */
@@ -8,6 +10,7 @@ export default function AccountWidget() {
   const dispatch = useAppDispatch()
   const { data: user, isLoading } = useGetMeQuery()
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation()
+  const [deleting, setDeleting] = useState(false)
 
   if (isLoading) return null
 
@@ -40,6 +43,10 @@ export default function AccountWidget() {
       <button type="button" className="account__button" onClick={() => logout()} disabled={isLoggingOut}>
         ログアウト
       </button>
+      <button type="button" className="account__button account__more" onClick={() => setDeleting(true)} aria-label="退会する" title="退会する">
+        ⋯
+      </button>
+      {deleting && <DeleteAccountDialog username={user.username} onClose={() => setDeleting(false)} />}
     </div>
   )
 }

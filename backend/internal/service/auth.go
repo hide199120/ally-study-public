@@ -10,12 +10,14 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/hide199120/ally-study/backend/internal/model"
+	"github.com/hide199120/ally-study/backend/internal/ratelimit"
 )
 
 // UserStore はユーザーの保存先（repository.UserRepository が満たす）。
@@ -23,6 +25,7 @@ type UserStore interface {
 	Create(ctx context.Context, username, passwordHash string) (*model.User, error)
 	FindByID(ctx context.Context, id int64) (*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
+	Delete(ctx context.Context, id int64) error
 }
 
 // SessionStore はセッションの保存先（repository.SessionRepository が満たす）。
@@ -50,6 +53,8 @@ var (
 	ErrInvalidCredentials = errors.New("invalid username or password")
 	// ErrUnauthenticated はログインしていない、またはセッションが切れていることを表す。
 	ErrUnauthenticated = errors.New("unauthenticated")
+	// ErrTooManyAttempts は、同じユーザー名へのログインの失敗が多すぎることを表す。
+	ErrTooManyAttempts = errors.New("too many login attempts")
 )
 
 // dummyPasswordHash は、存在しないユーザー名でログインされたときにも
@@ -75,6 +80,9 @@ type AuthService struct {
 	Sessions   SessionStore
 	SessionTTL time.Duration
 	Now        func() time.Time // テストで時刻を固定できるように差し替え可能にしている
+	// LoginFailures は、ユーザー名ごとのログイン失敗の回数を数える。
+	// IP アドレスを変えながら1つのアカウントを狙われても、総当たりできないようにする
+	LoginFailures *ratelimit.Limiter
 }
 
 // NewAuthService は標準の設定で AuthService を作る。
@@ -84,6 +92,8 @@ func NewAuthService(users UserStore, sessions SessionStore) *AuthService {
 		Sessions:   sessions,
 		SessionTTL: defaultSessionTTL,
 		Now:        time.Now,
+		// 同じユーザー名で、1時間に20回まで間違えられる
+		LoginFailures: ratelimit.New(20, time.Hour),
 	}
 }
 
@@ -112,9 +122,13 @@ func (s *AuthService) Signup(ctx context.Context, username, password string) (*m
 
 // Login はユーザー名とパスワードを確認し、セッションを発行する。
 func (s *AuthService) Login(ctx context.Context, username, password string) (*model.User, *Session, error) {
+	if s.LoginFailures != nil && s.LoginFailures.Exceeded(strings.ToLower(username)) {
+		return nil, nil, ErrTooManyAttempts
+	}
 	user, err := s.Users.FindByUsername(ctx, username)
 	if errors.Is(err, model.ErrNotFound) {
 		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash(), []byte(password))
+		s.recordFailure(username)
 		return nil, nil, ErrInvalidCredentials
 	}
 	if err != nil {
@@ -122,6 +136,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*mo
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		s.recordFailure(username)
 		return nil, nil, ErrInvalidCredentials
 	}
 
@@ -130,6 +145,12 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*mo
 		return nil, nil, err
 	}
 	return user, sess, nil
+}
+
+func (s *AuthService) recordFailure(username string) {
+	if s.LoginFailures != nil {
+		s.LoginFailures.Allow(strings.ToLower(username))
+	}
 }
 
 // Authenticate はセッショントークンから、ログイン中のユーザーを取得する。
@@ -150,6 +171,23 @@ func (s *AuthService) Authenticate(ctx context.Context, token string) (*model.Us
 		return nil, ErrUnauthenticated
 	}
 	return user, err
+}
+
+// ErrWrongPassword は、退会の確認で入力されたパスワードが違うことを表す。
+var ErrWrongPassword = errors.New("wrong password")
+
+// DeleteAccount は、パスワードを確かめてからユーザーを削除する（部屋・学習記録・セッションも消える）。
+func (s *AuthService) DeleteAccount(ctx context.Context, user *model.User, password string) error {
+	if len(password) > passwordMaxLen {
+		return ErrWrongPassword
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return ErrWrongPassword
+	}
+	if err := s.Users.Delete(ctx, user.ID); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	return nil
 }
 
 // Logout はセッションを削除する。

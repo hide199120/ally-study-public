@@ -84,6 +84,8 @@ paths:
               example:
                 code: username_taken
                 message: このユーザー名はすでに使われています
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /auth/login:
     post:
@@ -118,6 +120,8 @@ paths:
               example:
                 code: invalid_credentials
                 message: ユーザー名またはパスワードが正しくありません
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /auth/logout:
     post:
@@ -150,6 +154,28 @@ paths:
                 $ref: "#/components/schemas/User"
         "401":
           $ref: "#/components/responses/Unauthorized"
+    delete:
+      tags: [users]
+      operationId: deleteMe
+      summary: 退会（アカウントの削除）
+      description: |
+        確認のためパスワードを受け取り、ユーザーと、そのユーザーの部屋・学習記録・セッションをすべて削除します。
+        元に戻すことはできません。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountRequest"
+      responses:
+        "204":
+          description: 削除成功（セッションCookieも無効にする）
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
 
   /me/room:
     get:
@@ -319,6 +345,20 @@ components:
           example:
             code: unauthorized
             message: ログインしてください
+    TooManyRequests:
+      description: 短い時間にリクエストが多すぎる（しばらく待ってから再度試す）
+      headers:
+        Retry-After:
+          description: 再度試せるようになるまでの秒数
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: too_many_requests
+            message: 操作が多すぎます。しばらく待ってからもう一度お試しください
 
   schemas:
     Health:
@@ -329,6 +369,17 @@ components:
           type: string
           enum: [ok, unavailable]
           example: ok
+
+    DeleteAccountRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          minLength: 1
+          maxLength: 72
+          description: 確認のための今のパスワード
+          format: password
 
     Credentials:
       type: object

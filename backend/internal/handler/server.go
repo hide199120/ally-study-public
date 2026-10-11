@@ -23,6 +23,7 @@ type AuthService interface {
 	Login(ctx context.Context, username, password string) (*model.User, *service.Session, error)
 	Authenticate(ctx context.Context, token string) (*model.User, error)
 	Logout(ctx context.Context, token string) error
+	DeleteAccount(ctx context.Context, user *model.User, password string) error
 }
 
 // RoomService は部屋（模様替え）の処理（service.RoomService が満たす）。
