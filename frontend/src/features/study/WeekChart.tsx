@@ -5,7 +5,7 @@ const WEEKDAYS = ['月', '火', '水', '木', '金', '土', '日']
 
 // SVG の座標（viewBox）。横幅は親に合わせて伸び縮みする
 const W = 260
-const H = 120
+const H = 150
 const PAD = { top: 10, right: 6, bottom: 22, left: 6 }
 const PLOT_H = H - PAD.top - PAD.bottom
 const SLOT = (W - PAD.left - PAD.right) / 7

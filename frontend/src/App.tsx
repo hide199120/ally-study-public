@@ -7,41 +7,47 @@ import TimerWidget from "./features/study/TimerWidget";
 import StatsWidget from "./features/study/StatsWidget";
 import GoalsWidget from "./features/study/GoalsWidget";
 import { useStudySync } from "./features/study/useStudySync";
+import { useAppSelector } from "./app/hooks";
+import { selectIsEditingLayout } from "./features/room/roomLayoutSlice";
+import ThemePicker from "./features/theme/ThemePicker";
+import { useApplyTheme } from "./features/theme/useApplyTheme";
 import "./App.css";
 
 export default function App() {
+  // 選んでいるテーマの色を画面全体に反映する
+  useApplyTheme();
   // ログイン中なら、その人の学習記録（勉強時間・目標）を読み込む
   useStudySync();
+  // 模様替え中は、部屋のタイルを盤面いっぱいに広げる
+  const editingRoom = useAppSelector(selectIsEditingLayout);
 
   return (
     <main className="page">
-      {/* 背景：薄緑 + ぼかした光 + 半透明のフィルター */}
+      {/* 背景（テーマの色）。ほとんどはタイルで隠れる */}
       <div className="page__bg" aria-hidden>
         <span className="blob blob--a" />
         <span className="blob blob--b" />
         <span className="blob blob--c" />
       </div>
-      <div className="page__veil" aria-hidden />
 
-      {/* 広い画面では「左の列・3Dの部屋・右の列」の3列。狭い画面では部屋の下に並べる */}
-      <div className="layout">
-        <div className="layout__stage">
-          <Room />
-        </div>
-
-        {/* 左：時計・サウンド・タイマー */}
-        <aside className="widgets widgets--left" aria-label="時計とタイマー">
-          <ClockWidget />
+      <header className="topbar">
+        <p className="topbar__brand">ally-study</p>
+        <ThemePicker />
+        <div className="topbar__end">
           <SoundWidget />
-          <TimerWidget />
-        </aside>
-
-        {/* 右：アカウント・学習記録・目標 */}
-        <aside className="widgets widgets--right" aria-label="アカウントと学習記録">
           <AccountWidget />
-          <StatsWidget />
-          <GoalsWidget />
-        </aside>
+        </div>
+      </header>
+
+      {/* タイルを画面いっぱいに敷きつめる */}
+      <div className="board">
+        <section className={`widget tile-room${editingRoom ? " is-expanded" : ""}`} aria-label="部屋">
+          <Room />
+        </section>
+        <TimerWidget />
+        <GoalsWidget />
+        <StatsWidget />
+        <ClockWidget />
       </div>
 
       <AuthDialog />
