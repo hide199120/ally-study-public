@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, RoundedBox } from "@react-three/drei";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
+import { Environment, Lightformer, OrbitControls, RoundedBox } from "@react-three/drei";
+import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
+import { Bloom, EffectComposer, N8AO, Vignette } from "@react-three/postprocessing";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
 import Draggable from "./features/room/Draggable";
 import LayoutToolbar from "./features/room/LayoutToolbar";
@@ -16,7 +17,23 @@ import { makeTexture, type V3 } from "./features/room/models/utils";
 import { getWallpaper } from "./features/room/models/wallpapers";
 import OutsideView from "./features/room/models/Outside";
 import { selectTheme } from "./features/theme/themeSlice";
-import type { SceneLook } from "./features/theme/themes";
+import type { SceneLook, Wash } from "./features/theme/themes";
+import {
+  AcousticGuitar,
+  ArcLamp,
+  GamingChair,
+  HideoutBed,
+  HideoutCoffeeTable,
+  HideoutDecor,
+  HideoutDesk,
+  HideoutNightstand,
+  HideoutRug,
+  HideoutShelf,
+  HideoutSofa,
+} from "./features/room/models/hideout";
+
+// 面の照明（RectAreaLight）を使えるようにする
+RectAreaLightUniformsLib.init();
 import "./Room.css";
 
 /* =====================================================
@@ -708,6 +725,8 @@ function Walls({ tex, look }: { tex: Tex; look: SceneLook }) {
   // 無地の壁紙ならテーマの色に塗りかえ、模様のある壁紙なら模様の上から色を掛ける
   const wallColor = new THREE.Color(look.wallTint ?? wallpaper.color);
   const wallMapTint = look.wallTint ?? "#ffffff";
+  // 窓枠：秘密基地は黒っぽい金属、ほかは木
+  const frameColor = look.furniture === "hideout" ? "#2a2e36" : "#d6a064";
   const { backGeo, leftGeo, frameGeo, portalGeo } = useMemo(() => {
     const span = 3 + WALL_T; // 壁は床の外側まで
     const addArch = (p: THREE.Path, w: number, bottom: number) => {
@@ -826,19 +845,19 @@ function Walls({ tex, look }: { tex: Tex; look: SceneLook }) {
 
       {/* 窓枠 */}
       <mesh geometry={frameGeo} position={[0, 0, -3.13]} castShadow>
-        <meshStandardMaterial color="#d6a064" roughness={0.7} />
+        <meshStandardMaterial color={frameColor} roughness={0.7} />
       </mesh>
       <mesh position={[WIN.cx, (WIN.bottom + WIN.spring + WIN.w) / 2, -3.0]}>
         <boxGeometry args={[0.05, WIN.spring + WIN.w - WIN.bottom, 0.06]} />
-        <meshStandardMaterial color="#d6a064" />
+        <meshStandardMaterial color={frameColor} />
       </mesh>
       <mesh position={[WIN.cx, 1.95, -3.0]}>
         <boxGeometry args={[WIN.w * 2, 0.05, 0.06]} />
-        <meshStandardMaterial color="#d6a064" />
+        <meshStandardMaterial color={frameColor} />
       </mesh>
       {/* 窓台 */}
       <RoundedBox args={[2.5, 0.08, 0.4]} radius={0.03} smoothness={3} position={[WIN.cx, WIN.bottom - 0.12, -2.82]} castShadow>
-        <meshStandardMaterial color="#d6a064" roughness={0.7} />
+        <meshStandardMaterial color={frameColor} roughness={0.7} />
       </RoundedBox>
 
       <Outside tex={tex} portal={portalGeo} look={look} />
@@ -950,11 +969,26 @@ function Fireflies({ tex, color, kind }: { tex: Tex; color: string; kind: "firef
 const RESIDENT_ON_BED: V3 = [1.45, 0.73, -2.38];
 const RESIDENT_ON_FLOOR: V3 = [1.0, 0, -2.0];
 
+/** 壁を色で染める面の照明 */
+function WashLight({ wash }: { wash: Wash }) {
+  const ref = useRef<THREE.RectAreaLight>(null);
+  useEffect(() => {
+    ref.current?.lookAt(...wash.lookAt);
+  }, [wash]);
+  return <rectAreaLight ref={ref} color={wash.color} intensity={wash.intensity} position={wash.position} width={wash.size[0]} height={wash.size[1]} />;
+}
+
 function Scene() {
   const tex = useTextures();
   const avatar = useAppSelector(selectAvatar);
   const bedPlaced = useAppSelector((s) => selectIsPlaced(s, "bed"));
+  const deskPlaced = useAppSelector((s) => selectIsPlaced(s, "desk"));
+  const chairPlaced = useAppSelector((s) => selectIsPlaced(s, "chair"));
   const look = useAppSelector(selectTheme).scene;
+  const hideout = look.furniture === "hideout";
+  // 秘密基地では、デスクとイスがあればイスに座ってパソコンに向かう
+  const atDesk = hideout && deskPlaced && chairPlaced;
+  const resident = (position: V3) => <Resident avatar={avatar} position={position} />;
   return (
     <>
       <hemisphereLight args={look.hemi} />
@@ -973,16 +1007,24 @@ function Scene() {
         shadow-camera-far={25}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
+        shadow-radius={4}
       />
       <pointLight position={[-2.3, 1.2, -0.2]} color={look.lamp.color} intensity={look.lamp.intensity} distance={4} decay={2} />
+      {look.washes.map((w, i) => (
+        <WashLight key={`${look.furniture}-${i}`} wash={w} />
+      ))}
+      {/* やわらかい周りの光（光る板を並べた環境。画像の読み込みはしない） */}
+      <Environment resolution={128} environmentIntensity={look.envIntensity} frames={1}>
+        <Lightformer form="rect" intensity={2} color={look.sun.color} position={[0, 5, -6]} scale={[10, 4, 1]} />
+        <Lightformer form="rect" intensity={1} color={look.hemi[0]} position={[-6, 3, 2]} rotation-y={Math.PI / 2} scale={[8, 3, 1]} />
+        <Lightformer form="ring" intensity={1.5} color={look.lamp.color} position={[4, 2, 4]} scale={2} />
+      </Environment>
 
       <Walls tex={tex} look={look} />
-      <Shelf tex={tex} />
+      {hideout ? <HideoutDecor /> : <Shelf tex={tex} />}
 
       {/* ドラッグで動かせて、バッグに出し入れできる家具 */}
-      <Draggable id="rug">
-        <Rug />
-      </Draggable>
+      <Draggable id="rug">{hideout ? <HideoutRug /> : <Rug />}</Draggable>
       <Draggable id="cat">
         <Cat position={[-0.1, 0.012, 1.0]} tex={tex} />
       </Draggable>
@@ -990,20 +1032,18 @@ function Scene() {
         <Backpack />
       </Draggable>
       <Draggable id="bed">
-        <Bed>
-          <Resident avatar={avatar} position={RESIDENT_ON_BED} />
-        </Bed>
+        {hideout ? <HideoutBed>{!atDesk && resident(RESIDENT_ON_BED)}</HideoutBed> : <Bed>{resident(RESIDENT_ON_BED)}</Bed>}
       </Draggable>
-      {!bedPlaced && <Resident avatar={avatar} position={RESIDENT_ON_FLOOR} />}
-      <Draggable id="desk">
-        <Desk tex={tex} />
-      </Draggable>
+      {!bedPlaced && !atDesk && resident(RESIDENT_ON_FLOOR)}
+      <Draggable id="desk">{hideout ? <HideoutDesk glow={tex.glow} /> : <Desk tex={tex} />}</Draggable>
       <Draggable id="chair">
-        <Chair />
+        {hideout ? (
+          <GamingChair>{atDesk && <Resident avatar={avatar} position={[0, 0.5, 0.02]} pose="desk" headphones />}</GamingChair>
+        ) : (
+          <Chair />
+        )}
       </Draggable>
-      <Draggable id="sideTable">
-        <SideTable tex={tex} />
-      </Draggable>
+      <Draggable id="sideTable">{hideout ? <HideoutNightstand glow={tex.glow} /> : <SideTable tex={tex} />}</Draggable>
       <Draggable id="plantRight">
         <ShadowGroup>
           <Plant position={[2.5, 0, 1.9]} scale={1.6} phase={0.5} pot="#c9a27a" />
@@ -1014,24 +1054,14 @@ function Scene() {
           <Plant position={[-2.45, 0, 2.2]} scale={1.4} phase={1.6} />
         </ShadowGroup>
       </Draggable>
-      <Draggable id="bookshelf">
-        <Bookshelf />
-      </Draggable>
-      <Draggable id="sofa">
-        <Sofa />
-      </Draggable>
+      <Draggable id="bookshelf">{hideout ? <HideoutShelf /> : <Bookshelf />}</Draggable>
+      <Draggable id="sofa">{hideout ? <HideoutSofa /> : <Sofa />}</Draggable>
       <Draggable id="beanbag">
         <Beanbag />
       </Draggable>
-      <Draggable id="lowTable">
-        <LowTable glow={tex.glow} />
-      </Draggable>
-      <Draggable id="floorLamp">
-        <FloorLamp glow={tex.glow} />
-      </Draggable>
-      <Draggable id="guitar">
-        <Guitar />
-      </Draggable>
+      <Draggable id="lowTable">{hideout ? <HideoutCoffeeTable /> : <LowTable glow={tex.glow} />}</Draggable>
+      <Draggable id="floorLamp">{hideout ? <ArcLamp glow={tex.glow} /> : <FloorLamp glow={tex.glow} />}</Draggable>
+      <Draggable id="guitar">{hideout ? <AcousticGuitar /> : <Guitar />}</Draggable>
       <Draggable id="fishbowl">
         <Fishbowl />
       </Draggable>
@@ -1039,21 +1069,27 @@ function Scene() {
         <Cactus />
       </Draggable>
 
-      <ShadowGroup>
-        <Plant position={[WIN.cx - 0.55, WIN.bottom - 0.08, -2.82]} scale={0.8} phase={1} />
-        <Plant position={[WIN.cx + 0.55, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#c9a27a" />
-      </ShadowGroup>
-      <HangingPlant position={[WIN.cx - 0.55, 3.1, -2.75]} />
-      <HangingPlant position={[WIN.cx + 0.6, 3.1, -2.75]} phase={1.8} />
-
-      <FairyLights from={[-2.9, 3.4, -2.88]} to={[2.9, 3.4, -2.88]} tex={tex} color={look.bulb} />
-      <FairyLights from={[-2.88, 3.4, -2.9]} to={[-2.88, 3.4, 2.9]} tex={tex} color={look.bulb} />
+      {hideout ? (
+        <ShadowGroup>
+          <Plant position={[WIN.cx + 0.6, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#e8e6e2" />
+        </ShadowGroup>
+      ) : (
+        <>
+          <ShadowGroup>
+            <Plant position={[WIN.cx - 0.55, WIN.bottom - 0.08, -2.82]} scale={0.8} phase={1} />
+            <Plant position={[WIN.cx + 0.55, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#c9a27a" />
+          </ShadowGroup>
+          <HangingPlant position={[WIN.cx - 0.55, 3.1, -2.75]} />
+          <HangingPlant position={[WIN.cx + 0.6, 3.1, -2.75]} phase={1.8} />
+          <FairyLights from={[-2.9, 3.4, -2.88]} to={[2.9, 3.4, -2.88]} tex={tex} color={look.bulb} />
+          <FairyLights from={[-2.88, 3.4, -2.9]} to={[-2.88, 3.4, 2.9]} tex={tex} color={look.bulb} />
+        </>
+      )}
       {look.particles !== "none" && <Fireflies tex={tex} color={look.particleColor} kind={look.particles} />}
     </>
   );
 }
 
-/** 画面の縦横比に合わせてズームし、縦長の画面でも部屋が切れないようにする */
 /** テーマの明るさと、光のにじみ（ブルーム）・周辺の暗さ（ビネット） */
 function Effects() {
   const look = useAppSelector(selectTheme).scene;
@@ -1062,7 +1098,8 @@ function Effects() {
     get().gl.toneMappingExposure = look.exposure;
   }, [get, look.exposure]);
   return (
-    <EffectComposer multisampling={4} stencilBuffer>
+    <EffectComposer multisampling={0} stencilBuffer>
+      <N8AO aoRadius={0.6} distanceFalloff={0.6} intensity={look.ao} quality="medium" halfRes />
       <Bloom mipmapBlur intensity={look.bloom} luminanceThreshold={0.82} luminanceSmoothing={0.25} radius={0.75} />
       <Vignette eskil={false} offset={0.3} darkness={0.55} />
     </EffectComposer>
@@ -1076,7 +1113,7 @@ function FitToScreen() {
   const aspect = useThree((s) => s.size.width / s.size.height);
   useEffect(() => {
     const camera = get().camera as THREE.PerspectiveCamera;
-    camera.zoom = Math.min(1, aspect / 1.2);
+    camera.zoom = Math.min(1.25, aspect / 1.2);
     camera.updateProjectionMatrix();
   }, [get, aspect]);
   return null;

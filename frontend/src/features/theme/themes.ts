@@ -7,8 +7,21 @@ export type OutsideKind = 'forest' | 'night' | 'rain' | 'sunset' | 'city'
 /** 部屋の中をただよう光の粒 */
 export type ParticleKind = 'fireflies' | 'dust' | 'none'
 
+/** 家具のセット（テーマごとに見た目が変わる） */
+export type FurnitureSet = 'natural' | 'hideout'
+
+/** 壁などを色で染める面の照明（RectAreaLight） */
+export type Wash = { color: string; intensity: number; position: [number, number, number]; lookAt: [number, number, number]; size: [number, number] }
+
 /** 3D の部屋の光と色 */
 export type SceneLook = {
+  furniture: FurnitureSet
+  /** 色の照明（モニターやLEDの光が壁に当たっている感じ） */
+  washes: Wash[]
+  /** 周りの環境光（反射やふんわりした明るさ）の強さ */
+  envIntensity: number
+  /** すみの陰り（アンビエントオクルージョン）の強さ */
+  ao: number
   /** 空からの光（上の色・下の色・強さ） */
   hemi: [string, string, number]
   /** 窓から差し込む光 */
@@ -90,6 +103,10 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'light',
     },
     scene: {
+      furniture: 'natural',
+      washes: [],
+      envIntensity: 0.35,
+      ao: 1.6,
       hemi: ['#f4f7dc', '#7d5d3c', 0.75],
       sun: { color: '#ffd98a', intensity: 3.6, position: [3.5, 5.5, -9] },
       lamp: { color: '#ffb35c', intensity: 3 },
@@ -125,6 +142,14 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'dark',
     },
     scene: {
+      furniture: 'hideout',
+      washes: [
+        { color: '#3a6bff', intensity: 9, position: [-2.4, 1.5, -1.2], lookAt: [-3, 1.6, -1.2], size: [2.4, 1.6] },
+        { color: '#ff2f86', intensity: 6, position: [2.3, 1.7, -2.3], lookAt: [2.3, 1.7, -3], size: [1.6, 2.4] },
+        { color: '#ff2f86', intensity: 3, position: [2.9, 0.8, 0.2], lookAt: [0, 0.4, 0.2], size: [2.5, 1.2] },
+      ],
+      envIntensity: 0.25,
+      ao: 2,
       hemi: ['#3b4c7a', '#120d0a', 0.35],
       sun: { color: '#8fb4ff', intensity: 0.9, position: [3.5, 6, -9] },
       lamp: { color: '#ff9a3c', intensity: 6 },
@@ -135,8 +160,8 @@ export const THEMES: Record<ThemeId, Theme> = {
       particleColor: '#7ff5e6',
       outside: 'night',
       sky: ['#05070f', '#111a33', '#25305a'],
-      wallTint: '#5a4a3e',
-      floorTint: '#8a7a6a',
+      wallTint: '#4a5266',
+      floorTint: '#b89a7c',
       orb: '#e8f0ff',
     },
   },
@@ -160,6 +185,10 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'dark',
     },
     scene: {
+      furniture: 'natural',
+      washes: [],
+      envIntensity: 0.2,
+      ao: 1.8,
       hemi: ['#6f86a8', '#1b1712', 0.55],
       sun: { color: '#9db4d6', intensity: 0.8, position: [3.5, 6, -9] },
       lamp: { color: '#ffae5a', intensity: 7 },
@@ -195,6 +224,10 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'light',
     },
     scene: {
+      furniture: 'natural',
+      washes: [],
+      envIntensity: 0.35,
+      ao: 1.6,
       hemi: ['#ffcf9e', '#5a3420', 0.6],
       sun: { color: '#ff9a4d', intensity: 4.8, position: [6, 2.8, -9] },
       lamp: { color: '#ffb066', intensity: 2.5 },
@@ -230,6 +263,10 @@ export const THEMES: Record<ThemeId, Theme> = {
       colorScheme: 'dark',
     },
     scene: {
+      furniture: 'natural',
+      washes: [{ color: '#b56cff', intensity: 4, position: [1.3, 1.8, -2.5], lookAt: [1.3, 1.0, 0], size: [2, 2] }],
+      envIntensity: 0.2,
+      ao: 1.8,
       hemi: ['#6a5bd6', '#140d1e', 0.45],
       sun: { color: '#b38cff', intensity: 1.2, position: [3.5, 4, -9] },
       lamp: { color: '#ff7ad1', intensity: 5 },

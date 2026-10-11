@@ -156,8 +156,9 @@ body {
   z-index: 10;
   animation: room-expand 0.28s ease-out;
 }
+/* 大きさを変える動き（transform）は付けない。3D の描画サイズの測り方がずれるため */
 @keyframes room-expand {
-  from { opacity: 0.6; transform: scale(0.97); }
+  from { opacity: 0.4; }
 }
 .tile-room .room-hint { left: 16px; bottom: 16px; transform: none; }
 .tile-room .room-hint.is-hidden { transform: none; }
