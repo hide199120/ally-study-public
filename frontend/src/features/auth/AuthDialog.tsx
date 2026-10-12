@@ -110,6 +110,14 @@ function AuthDialogContent({ mode }: { mode: 'login' | 'signup' }) {
             {!isLogin && <small id={`${formId}-password-hint`}>8〜72文字</small>}
           </div>
 
+          {!isLogin && (
+            <p className="auth-dialog__privacy">
+              保存するのは、ユーザー名・パスワード（元に戻せない形に変換して保存）・部屋の模様替え・勉強の記録だけです。
+              メールアドレスなどの個人情報は集めません。退会するといつでもすべて削除できます。
+              ほかのサービスと同じパスワードは使わないでください。
+            </p>
+          )}
+
           {errorMessage && (
             <p className="auth-form__error" role="alert">
               {errorMessage}

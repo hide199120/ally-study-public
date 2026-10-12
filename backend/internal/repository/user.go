@@ -70,3 +70,11 @@ func (r *UserRepository) FindByUsername(ctx context.Context, username string) (*
 	}
 	return &u, nil
 }
+
+// Delete はユーザーを削除する。部屋・学習記録・セッションは外部キーの ON DELETE CASCADE で一緒に消える。
+func (r *UserRepository) Delete(ctx context.Context, id int64) error {
+	if _, err := r.DB.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id); err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	return nil
+}

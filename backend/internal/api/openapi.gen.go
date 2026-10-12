@@ -193,6 +193,12 @@ type Credentials struct {
 	Username string `json:"username"`
 }
 
+// DeleteAccountRequest defines model for DeleteAccountRequest.
+type DeleteAccountRequest struct {
+	// Password 確認のための今のパスワード
+	Password string `json:"password"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code 機械的に判定するためのエラーコード
@@ -392,6 +398,9 @@ type Wallpaper string
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
+// TooManyRequests defines model for TooManyRequests.
+type TooManyRequests = Error
+
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
@@ -400,6 +409,9 @@ type LoginJSONRequestBody = Credentials
 
 // SignupJSONRequestBody defines body for Signup for application/json ContentType.
 type SignupJSONRequestBody = Credentials
+
+// DeleteMeJSONRequestBody defines body for DeleteMe for application/json ContentType.
+type DeleteMeJSONRequestBody = DeleteAccountRequest
 
 // UpdateMyRoomJSONRequestBody defines body for UpdateMyRoom for application/json ContentType.
 type UpdateMyRoomJSONRequestBody = Room
@@ -427,6 +439,9 @@ type ServerInterface interface {
 	// GetHealth ヘルスチェック
 	// (GET /health)
 	GetHealth(c *gin.Context)
+	// DeleteMe 退会（アカウントの削除）
+	// (DELETE /me)
+	DeleteMe(c *gin.Context)
 	// GetMe ログイン中のユーザー情報を取得
 	// (GET /me)
 	GetMe(c *gin.Context)
@@ -509,6 +524,19 @@ func (siw *ServerInterfaceWrapper) GetHealth(c *gin.Context) {
 	}
 
 	siw.Handler.GetHealth(c)
+}
+
+// DeleteMe operation middleware
+func (siw *ServerInterfaceWrapper) DeleteMe(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteMe(c)
 }
 
 // GetMe operation middleware
@@ -633,6 +661,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/auth/signup", wrapper.Signup)
 	router.POST(options.BaseURL+"/auth/login", wrapper.Login)
 	router.POST(options.BaseURL+"/auth/logout", wrapper.Logout)
+	router.DELETE(options.BaseURL+"/me", wrapper.DeleteMe)
 	router.GET(options.BaseURL+"/me", wrapper.GetMe)
 	router.GET(options.BaseURL+"/me/room", wrapper.GetMyRoom)
 	router.PUT(options.BaseURL+"/me/room", wrapper.UpdateMyRoom)

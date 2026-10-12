@@ -50,3 +50,12 @@ func (r *SessionRepository) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// DeleteExpired は期限切れのセッションをまとめて削除し、消した件数を返す。
+func (r *SessionRepository) DeleteExpired(ctx context.Context, now time.Time) (int64, error) {
+	res, err := r.DB.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at <= ?`, now)
+	if err != nil {
+		return 0, fmt.Errorf("delete expired sessions: %w", err)
+	}
+	return res.RowsAffected()
+}

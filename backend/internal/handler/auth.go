@@ -56,6 +56,10 @@ func (s *Server) Login(c *gin.Context) {
 		errorJSON(c, http.StatusUnauthorized, "invalid_credentials", "ユーザー名またはパスワードが正しくありません")
 		return
 	}
+	if errors.Is(err, service.ErrTooManyAttempts) {
+		errorJSON(c, http.StatusTooManyRequests, "too_many_requests", "ログインの失敗が続いたため、しばらくログインできません。時間をおいてお試しください")
+		return
+	}
 	if err != nil {
 		log.Printf("login: %v", err)
 		errorJSON(c, http.StatusInternalServerError, "internal_error", "サーバーでエラーが発生しました")
@@ -90,6 +94,33 @@ func (s *Server) GetMe(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toAPIUser(user))
+}
+
+// DeleteMe は DELETE /api/me を処理する（退会）。確認のためパスワードを受け取る。
+func (s *Server) DeleteMe(c *gin.Context) {
+	_, user, ok := s.requireUser(c)
+	if !ok {
+		return
+	}
+	var req api.DeleteAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.Password == "" {
+		errorJSON(c, http.StatusBadRequest, "validation_error", "パスワードを入力してください")
+		return
+	}
+
+	err := s.Auth.DeleteAccount(c.Request.Context(), user, req.Password)
+	if errors.Is(err, service.ErrWrongPassword) {
+		errorJSON(c, http.StatusBadRequest, "wrong_password", "パスワードが正しくありません")
+		return
+	}
+	if err != nil {
+		log.Printf("delete account: %v", err)
+		errorJSON(c, http.StatusInternalServerError, "internal_error", "サーバーでエラーが発生しました")
+		return
+	}
+
+	s.clearSessionCookie(c)
+	c.Status(http.StatusNoContent)
 }
 
 // requireUser はCookieのセッションからログイン中のユーザーを取得する。

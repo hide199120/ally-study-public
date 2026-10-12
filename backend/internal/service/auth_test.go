@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/hide199120/ally-study/backend/internal/model"
+	"github.com/hide199120/ally-study/backend/internal/ratelimit"
 )
 
 // fakeUserStore はメモリ上でユーザーを保存する、テスト用の UserStore。
@@ -42,6 +43,15 @@ func (f *fakeUserStore) FindByUsername(_ context.Context, username string) (*mod
 		return u, nil
 	}
 	return nil, model.ErrNotFound
+}
+
+func (f *fakeUserStore) Delete(_ context.Context, id int64) error {
+	for k, u := range f.users {
+		if u.ID == id {
+			delete(f.users, k)
+		}
+	}
+	return nil
 }
 
 type savedSession struct {
@@ -241,4 +251,49 @@ func TestAuthService_AuthenticateAndLogout(t *testing.T) {
 			t.Fatalf("error = %v, want %v", err, ErrUnauthenticated)
 		}
 	})
+}
+
+func TestAuthService_DeleteAccount(t *testing.T) {
+	users := newFakeUserStore()
+	svc := NewAuthService(users, newFakeSessionStore())
+	user, _, err := svc.Signup(context.Background(), "ally_user", "password1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.DeleteAccount(context.Background(), user, "wrong-password"); !errors.Is(err, ErrWrongPassword) {
+		t.Fatalf("パスワードが違うときは ErrWrongPassword のはず: %v", err)
+	}
+	if _, err := users.FindByID(context.Background(), user.ID); err != nil {
+		t.Fatal("パスワードが違うときは削除しないはず")
+	}
+
+	if err := svc.DeleteAccount(context.Background(), user, "password1234"); err != nil {
+		t.Fatalf("削除できるはず: %v", err)
+	}
+	if _, err := users.FindByID(context.Background(), user.ID); !errors.Is(err, model.ErrNotFound) {
+		t.Fatal("ユーザーが消えているはず")
+	}
+}
+
+func TestAuthService_Login_LocksAfterManyFailures(t *testing.T) {
+	svc := NewAuthService(newFakeUserStore(), newFakeSessionStore())
+	svc.LoginFailures = ratelimit.New(3, time.Hour)
+	ctx := context.Background()
+	if _, _, err := svc.Signup(ctx, "ally_user", "password1234"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, _, err := svc.Login(ctx, "ally_user", "wrong-password"); !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("%d回目: %v", i+1, err)
+		}
+	}
+	// 失敗が上限に達したら、正しいパスワードでもしばらくログインできない（大文字小文字も区別しない）
+	if _, _, err := svc.Login(ctx, "ALLY_user", "password1234"); !errors.Is(err, ErrTooManyAttempts) {
+		t.Fatalf("ロックされるはず: %v", err)
+	}
+	// 別のユーザー名には影響しない
+	if _, _, err := svc.Login(ctx, "someone_else", "x"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("別のユーザー名: %v", err)
+	}
 }

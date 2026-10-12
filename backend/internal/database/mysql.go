@@ -25,6 +25,10 @@ func Open(ctx context.Context, c config.DBConfig) (*sql.DB, error) {
 	mc.Loc = time.UTC   // アプリとDBの間は UTC でやり取りする
 	// DB側の CURRENT_TIMESTAMP も UTC になるように、接続ごとのタイムゾーンを揃える
 	mc.Params = map[string]string{"time_zone": "'+00:00'"}
+	if c.TLS {
+		// サーバー証明書を OS の証明書で確認したうえで暗号化する
+		mc.TLSConfig = "true"
+	}
 
 	db, err := sql.Open("mysql", mc.FormatDSN())
 	if err != nil {

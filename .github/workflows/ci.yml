@@ -44,6 +44,9 @@ jobs:
       - name: 型チェックとビルド（tsc + Vite）
         run: npm run build
 
+      - name: ライブラリの脆弱性チェック（npm audit）
+        run: npm audit --omit=dev --audit-level=high
+
   backend:
     name: Backend (fmt / vet / test / generate)
     runs-on: ubuntu-latest
@@ -74,6 +77,9 @@ jobs:
       - name: テスト（go test）
         run: go test ./...
 
+      - name: ライブラリの脆弱性チェック（govulncheck）
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
       - name: OpenAPI から生成したコードが最新か確認
         run: |
           go generate ./...
@@ -81,3 +87,13 @@ jobs:
             echo "openapi.gen.go が api/openapi.yaml と合っていません。backend で go generate ./... を実行してコミットしてください"
             exit 1
           fi
+
+  docker:
+    name: Docker image (build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 本番用イメージがビルドできるか確認
+        run: docker build -t ally-study:ci .

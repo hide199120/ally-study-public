@@ -56,15 +56,20 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgb(var(--ink-rgb) / 0.18);
+  background: rgb(var(--shadow-rgb) / 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   animation: fade-in 0.2s ease;
 }
 .auth-dialog {
   position: relative;
   width: min(380px, 100%);
   padding: 28px 28px 24px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   border-radius: 28px;
-  background: rgb(var(--surface-rgb) / 0.72);
+  /* 後ろのタイマーなどが透けて読みにくくならないよう、ほぼ不透明にする */
+  background: rgb(var(--surface-rgb) / 0.97);
   animation: pop-in 0.25s ease;
 }
 .auth-dialog__close {
@@ -131,8 +136,8 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(217, 95, 74, 0.12);
-  color: #a3412f;
+  background: rgb(214 84 60 / 0.16);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 600;
 }
@@ -152,6 +157,26 @@
 }
 .auth-form__submit:hover { background: var(--leaf-deep); }
 .auth-form__submit:disabled { opacity: 0.6; cursor: default; }
+
+.auth-dialog__privacy {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(var(--ink-rgb) / 0.05);
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.account__more {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+.danger-list { margin: 0 0 4px; padding-left: 1.2em; font-size: 13px; line-height: 1.7; color: var(--ink-soft); }
+.auth-form__submit--danger { background: #c4473a; color: #fff; box-shadow: none; }
+.auth-form__submit--danger:hover { background: #a33a2f; }
 
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes pop-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }

@@ -1,0 +1,11 @@
+# イメージのビルドに使わないもの
+.git
+.github
+**/node_modules
+frontend/dist
+**/*.tar.gz
+**/*.log
+scripts
+*.bat
+**/.env
+**/.env.*

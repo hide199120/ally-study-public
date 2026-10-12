@@ -28,6 +28,11 @@ export const authApi = createApi({
       query: (body) => ({ url: '/auth/login', method: 'POST', body }),
       invalidatesTags: ['Me'],
     }),
+    /** 退会。確認のためパスワードを送る。成功したら部屋や記録のキャッシュも捨てる */
+    deleteMe: builder.mutation<void, { password: string }>({
+      query: (body) => ({ url: '/me', method: 'DELETE', body }),
+      invalidatesTags: ['Me', 'Room', 'Study'],
+    }),
     logout: builder.mutation<void, void>({
       query: () => ({ url: '/auth/logout', method: 'POST' }),
       invalidatesTags: ['Me', 'Room', 'Study'],
@@ -35,7 +40,7 @@ export const authApi = createApi({
   }),
 })
 
-export const { useGetMeQuery, useSignupMutation, useLoginMutation, useLogoutMutation } = authApi
+export const { useGetMeQuery, useSignupMutation, useLoginMutation, useLogoutMutation, useDeleteMeMutation } = authApi
 
 /** APIのエラーから、画面に表示するメッセージを取り出す */
 export function getErrorMessage(error: FetchBaseQueryError | SerializedError | undefined): string | null {

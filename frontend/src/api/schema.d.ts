@@ -92,7 +92,12 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * 退会（アカウントの削除）
+         * @description 確認のためパスワードを受け取り、ユーザーと、そのユーザーの部屋・学習記録・セッションをすべて削除します。
+         *     元に戻すことはできません。
+         */
+        delete: operations["deleteMe"];
         options?: never;
         head?: never;
         patch?: never;
@@ -213,6 +218,13 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "unavailable";
+        };
+        DeleteAccountRequest: {
+            /**
+             * Format: password
+             * @description 確認のための今のパスワード
+             */
+            password: string;
         };
         Credentials: {
             /** @example ally_user */
@@ -406,6 +418,23 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description 短い時間にリクエストが多すぎる（しばらく待ってから再度試す） */
+        TooManyRequests: {
+            headers: {
+                /** @description 再度試せるようになるまでの秒数 */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "too_many_requests",
+                 *       "message": "操作が多すぎます。しばらく待ってからもう一度お試しください"
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: never;
     requestBodies: never;
@@ -495,6 +524,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     login: {
@@ -536,6 +566,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["TooManyRequests"];
         };
     };
     logout: {
@@ -578,6 +609,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description 削除成功（セッションCookieも無効にする） */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
         };
     };
     getMyRoom: {
