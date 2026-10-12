@@ -2,17 +2,28 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, RoundedBox } from "@react-three/drei";
+import { Environment, Lightformer, OrbitControls, PerformanceMonitor, RoundedBox } from "@react-three/drei";
+import { RectAreaLightUniformsLib } from "three/examples/jsm/lights/RectAreaLightUniformsLib.js";
+import { Bloom, EffectComposer, N8AO, Vignette } from "@react-three/postprocessing";
 import { useAppDispatch, useAppSelector } from "./app/hooks";
 import Draggable from "./features/room/Draggable";
 import LayoutToolbar from "./features/room/LayoutToolbar";
-import { selectAvatar, selectFurniture, selectIsPlaced, selectWallpaper } from "./features/room/roomLayoutSlice";
+import { selectAvatar, selectFurniture, selectIsEditingLayout, selectIsPlaced, selectWallpaper } from "./features/room/roomLayoutSlice";
 import { useRoomSync } from "./features/room/useRoomSync";
 import { Beanbag, Bookshelf, Cactus, Fishbowl, FloorLamp, Guitar, LowTable, Sofa } from "./features/room/models/NewFurniture";
 import Resident from "./features/room/models/Resident";
 import { Glow, ShadowGroup } from "./features/room/models/shared";
 import { makeTexture, type V3 } from "./features/room/models/utils";
 import { getWallpaper } from "./features/room/models/wallpapers";
+import OutsideView from "./features/room/models/Outside";
+import { selectTheme } from "./features/theme/themeSlice";
+import type { SceneLook, Wash } from "./features/theme/themes";
+import { FURNITURE_SETS } from "./features/room/models/sets";
+import type { Piece } from "./features/room/models/sets/types";
+import type { FurnitureId } from "./features/room/catalog";
+
+// 面の照明（RectAreaLight）を使えるようにする
+RectAreaLightUniformsLib.init();
 import "./Room.css";
 
 /* =====================================================
@@ -659,9 +670,9 @@ function Rug() {
    窓・外の景色
    ===================================================== */
 /** 外の景色は「窓の形」の中にだけ描く（ステンシル）。部屋の外側から見えてしまうのを防ぐ */
-function Outside({ tex, portal }: { tex: Tex; portal: THREE.BufferGeometry }) {
-  const leaves = useRef<THREE.Group>(null);
+function Outside({ tex, portal, look }: { tex: Tex; portal: THREE.BufferGeometry; look: SceneLook }) {
   const root = useRef<THREE.Group>(null);
+  // テーマで景色が入れ替わるたびに、中のメッシュを「窓の形の中だけ描く」設定にする
   useEffect(() => {
     root.current?.traverse((o) => {
       const m = o as THREE.Mesh;
@@ -674,13 +685,10 @@ function Outside({ tex, portal }: { tex: Tex; portal: THREE.BufferGeometry }) {
         mat.stencilZFail = THREE.KeepStencilOp;
         mat.stencilZPass = THREE.KeepStencilOp;
       }
-      // Group に renderOrder を付けると並び順(groupOrder)が先に効いてしまうので、メッシュとスプライトだけに付ける
-      if (m.isMesh || (o as THREE.Sprite).isSprite) o.renderOrder = -5;
+      // Group に renderOrder を付けると並び順(groupOrder)が先に効いてしまうので、メッシュ・スプライト・点だけに付ける
+      if (m.isMesh || (o as THREE.Sprite).isSprite || (o as THREE.Points).isPoints) o.renderOrder = -5;
     });
-  }, []);
-  useFrame(({ clock }) => {
-    if (leaves.current) leaves.current.rotation.z = Math.sin(clock.elapsedTime * 0.7) * 0.025;
-  });
+  }, [look]);
   return (
     <>
       <mesh geometry={portal} position={[0, 0, -3.05]} renderOrder={-10}>
@@ -694,57 +702,21 @@ function Outside({ tex, portal }: { tex: Tex; portal: THREE.BufferGeometry }) {
         />
       </mesh>
       <group ref={root} position={[WIN.cx, 0, -4.2]}>
-      <mesh position={[0, 2.2, -1.2]}>
-        <planeGeometry args={[16, 10]} />
-        <meshBasicMaterial map={tex.sky} toneMapped={false} />
-      </mesh>
-      <Glow position={[0.7, 2.9, -1.1]} color="#fffbd0" size={3.2} opacity={0.9} map={tex.glow} />
-      <mesh position={[0.7, 2.9, -1.0]}>
-        <circleGeometry args={[0.28, 32]} />
-        <meshBasicMaterial color="#fffbe0" toneMapped={false} />
-      </mesh>
-      {/* 丘 */}
-      <mesh position={[-0.6, 0.6, -0.8]} scale={[3.4, 1.1, 1]}>
-        <sphereGeometry args={[1, 32, 16]} />
-        <meshStandardMaterial color="#6aa65f" roughness={1} />
-      </mesh>
-      <mesh position={[1.6, 0.3, -0.4]} scale={[3.2, 1.0, 1]}>
-        <sphereGeometry args={[1, 32, 16]} />
-        <meshStandardMaterial color="#4f8a4c" roughness={1} />
-      </mesh>
-      {/* 木 */}
-      {[
-        [-0.9, 1.8, 0.2, 0.55, "#3f7d46"],
-        [-0.4, 1.7, 0.3, 0.7, "#4a8a4f"],
-        [0.9, 1.45, 0.1, 0.6, "#3f7d46"],
-        [1.7, 1.9, 0.2, 0.5, "#4f8a4c"],
-      ].map(([x, y, z, r, c], i) => (
-        <mesh key={i} position={[x as number, y as number, z as number]}>
-          <sphereGeometry args={[r as number, 20, 20]} />
-          <meshStandardMaterial color={c as string} roughness={1} />
-        </mesh>
-      ))}
-      {/* 手前でゆれる葉 */}
-      <group ref={leaves} position={[-0.8, 3.3, 0.6]}>
-        {[
-          [0, 0, 0.38, "#4f8a4c"],
-          [0.4, -0.3, 0.3, "#5f9d57"],
-          [-0.35, -0.35, 0.28, "#3f7d46"],
-        ].map(([x, y, r, c], i) => (
-          <mesh key={i} position={[x as number, y as number, 0]}>
-            <sphereGeometry args={[r as number, 16, 16]} />
-            <meshStandardMaterial color={c as string} roughness={1} />
-          </mesh>
-        ))}
-      </group>
+        <OutsideView key={look.outside} look={look} glow={tex.glow} />
       </group>
     </>
   );
 }
 
 /** 壁（アーチ窓の穴付き）と窓枠 */
-function Walls({ tex }: { tex: Tex }) {
+function Walls({ tex, look }: { tex: Tex; look: SceneLook }) {
   const wallpaper = getWallpaper(useAppSelector(selectWallpaper));
+  // テーマに壁の色があれば、壁紙の上から掛ける
+  // 無地の壁紙ならテーマの色に塗りかえ、模様のある壁紙なら模様の上から色を掛ける
+  const wallColor = new THREE.Color(look.wallTint ?? wallpaper.color);
+  const wallMapTint = look.wallTint ?? "#ffffff";
+  // 窓枠：秘密基地は黒っぽい金属、ほかは木
+  const frameColor = look.furniture === "hideout" || look.furniture === "city" ? "#2a2e36" : look.furniture === "rain" ? "#5a4030" : "#d6a064";
   const { backGeo, leftGeo, frameGeo, portalGeo } = useMemo(() => {
     const span = 3 + WALL_T; // 壁は床の外側まで
     const addArch = (p: THREE.Path, w: number, bottom: number) => {
@@ -791,13 +763,21 @@ function Walls({ tex }: { tex: Tex }) {
   }, []);
 
   // 左の壁は少しだけ暗くして、奥の壁と区別がつくようにする（壁紙を変えたらマテリアルを作り直す）
-  const wallA = <meshStandardMaterial key={`a-${wallpaper.color}-${wallpaper.map?.id}`} attach="material-0" map={wallpaper.map} color={wallpaper.color} roughness={1} />;
-  const wallB = (
+  const wallA = (
     <meshStandardMaterial
-      key={`b-${wallpaper.color}-${wallpaper.map?.id}`}
+      key={`a-${wallpaper.color}-${wallpaper.map?.id}-${look.wallTint}`}
       attach="material-0"
       map={wallpaper.map}
-      color={new THREE.Color(wallpaper.color).multiplyScalar(0.88)}
+      color={wallpaper.map ? wallMapTint : wallColor}
+      roughness={1}
+    />
+  );
+  const wallB = (
+    <meshStandardMaterial
+      key={`b-${wallpaper.color}-${wallpaper.map?.id}-${look.wallTint}`}
+      attach="material-0"
+      map={wallpaper.map}
+      color={new THREE.Color(wallpaper.map ? wallMapTint : wallColor).multiplyScalar(0.82)}
       roughness={1}
     />
   );
@@ -810,7 +790,7 @@ function Walls({ tex }: { tex: Tex }) {
         <boxGeometry args={[6.18, 0.3, 6.18]} />
         <meshStandardMaterial attach="material-0" color="#6b4a2b" />
         <meshStandardMaterial attach="material-1" color="#6b4a2b" />
-        <meshStandardMaterial attach="material-2" map={tex.wood} roughness={0.6} />
+        <meshStandardMaterial attach="material-2" map={tex.wood} color={look.floorTint} roughness={0.55} />
         <meshStandardMaterial attach="material-3" color="#4a3019" />
         <meshStandardMaterial attach="material-4" color="#6b4a2b" />
         <meshStandardMaterial attach="material-5" color="#6b4a2b" />
@@ -855,22 +835,22 @@ function Walls({ tex }: { tex: Tex }) {
 
       {/* 窓枠 */}
       <mesh geometry={frameGeo} position={[0, 0, -3.13]} castShadow>
-        <meshStandardMaterial color="#d6a064" roughness={0.7} />
+        <meshStandardMaterial color={frameColor} roughness={0.7} />
       </mesh>
       <mesh position={[WIN.cx, (WIN.bottom + WIN.spring + WIN.w) / 2, -3.0]}>
         <boxGeometry args={[0.05, WIN.spring + WIN.w - WIN.bottom, 0.06]} />
-        <meshStandardMaterial color="#d6a064" />
+        <meshStandardMaterial color={frameColor} />
       </mesh>
       <mesh position={[WIN.cx, 1.95, -3.0]}>
         <boxGeometry args={[WIN.w * 2, 0.05, 0.06]} />
-        <meshStandardMaterial color="#d6a064" />
+        <meshStandardMaterial color={frameColor} />
       </mesh>
       {/* 窓台 */}
       <RoundedBox args={[2.5, 0.08, 0.4]} radius={0.03} smoothness={3} position={[WIN.cx, WIN.bottom - 0.12, -2.82]} castShadow>
-        <meshStandardMaterial color="#d6a064" roughness={0.7} />
+        <meshStandardMaterial color={frameColor} roughness={0.7} />
       </RoundedBox>
 
-      <Outside tex={tex} portal={portalGeo} />
+      <Outside tex={tex} portal={portalGeo} look={look} />
     </group>
   );
 }
@@ -878,7 +858,7 @@ function Walls({ tex }: { tex: Tex }) {
 /* =====================================================
    イルミネーション・ホタル
    ===================================================== */
-function FairyBulb({ position, phase, tex }: { position: V3; phase: number; tex: Tex }) {
+function FairyBulb({ position, phase, tex, color }: { position: V3; phase: number; tex: Tex; color: string }) {
   const s = useRef<THREE.Sprite>(null);
   useFrame(({ clock }) => {
     if (s.current) {
@@ -891,16 +871,16 @@ function FairyBulb({ position, phase, tex }: { position: V3; phase: number; tex:
     <group position={position}>
       <mesh>
         <sphereGeometry args={[0.028, 10, 10]} />
-        <meshBasicMaterial color="#ffe6a0" toneMapped={false} />
+        <meshBasicMaterial color={new THREE.Color(color).multiplyScalar(1.5)} toneMapped={false} />
       </mesh>
       <sprite ref={s} scale={[0.25, 0.25, 1]}>
-        <spriteMaterial map={tex.glow} color="#ffd27a" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+        <spriteMaterial map={tex.glow} color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
       </sprite>
     </group>
   );
 }
 
-function FairyLights({ from, to, tex }: { from: V3; to: V3; tex: Tex }) {
+function FairyLights({ from, to, tex, color }: { from: V3; to: V3; tex: Tex; color: string }) {
   const { pts, curve } = useMemo(() => {
     const f = new THREE.Vector3(...from);
     const t = new THREE.Vector3(...to);
@@ -923,13 +903,16 @@ function FairyLights({ from, to, tex }: { from: V3; to: V3; tex: Tex }) {
         <meshStandardMaterial color="#4a3a22" />
       </mesh>
       {pts.map((p, i) => (
-        <FairyBulb key={i} position={p} phase={i * 0.9} tex={tex} />
+        <FairyBulb key={i} position={p} phase={i * 0.9} tex={tex} color={color} />
       ))}
     </group>
   );
 }
 
-function Fireflies({ tex }: { tex: Tex }) {
+/** ただよう光の粒。fireflies はホタル、dust はゆっくり舞うほこり */
+function Fireflies({ tex, color, kind }: { tex: Tex; color: string; kind: "fireflies" | "dust" }) {
+  const slow = kind === "dust" ? 0.35 : 1;
+  const size = kind === "dust" ? 0.55 : 1;
   const refs = useRef<(THREE.Sprite | null)[]>([]);
   const data = useMemo(
     () =>
@@ -946,9 +929,10 @@ function Fireflies({ tex }: { tex: Tex }) {
     data.forEach((d, i) => {
       const s = refs.current[i];
       if (!s) return;
-      s.position.set(d.base[0] + Math.sin(t * d.sp + d.ph) * d.amp * 1.6, d.base[1] + Math.sin(t * d.sp * 1.3 + d.ph) * d.amp, d.base[2] + Math.cos(t * d.sp * 0.9 + d.ph) * d.amp * 1.6);
+      const tt = t * slow;
+      s.position.set(d.base[0] + Math.sin(tt * d.sp + d.ph) * d.amp * 1.6, d.base[1] + Math.sin(tt * d.sp * 1.3 + d.ph) * d.amp, d.base[2] + Math.cos(tt * d.sp * 0.9 + d.ph) * d.amp * 1.6);
       const k = 0.5 + 0.5 * Math.sin(t * 1.6 + d.ph * 2);
-      s.scale.setScalar(0.07 + k * 0.07);
+      s.scale.setScalar((0.07 + k * 0.07) * size);
       (s.material as THREE.SpriteMaterial).opacity = 0.2 + k * 0.8;
     });
   });
@@ -961,7 +945,7 @@ function Fireflies({ tex }: { tex: Tex }) {
             refs.current[i] = el;
           }}
         >
-          <spriteMaterial map={tex.glow} color="#fff6a8" transparent depthWrite={false} blending={THREE.AdditiveBlending} />
+          <spriteMaterial map={tex.glow} color={color} transparent depthWrite={false} blending={THREE.AdditiveBlending} />
         </sprite>
       ))}
     </group>
@@ -975,20 +959,46 @@ function Fireflies({ tex }: { tex: Tex }) {
 const RESIDENT_ON_BED: V3 = [1.45, 0.73, -2.38];
 const RESIDENT_ON_FLOOR: V3 = [1.0, 0, -2.0];
 
+/** 壁を色で染める面の照明 */
+function WashLight({ wash }: { wash: Wash }) {
+  const ref = useRef<THREE.RectAreaLight>(null);
+  useEffect(() => {
+    ref.current?.lookAt(...wash.lookAt);
+  }, [wash]);
+  return <rectAreaLight ref={ref} color={wash.color} intensity={wash.intensity} position={wash.position} width={wash.size[0]} height={wash.size[1]} />;
+}
+
 function Scene() {
   const tex = useTextures();
   const avatar = useAppSelector(selectAvatar);
   const bedPlaced = useAppSelector((s) => selectIsPlaced(s, "bed"));
+  const deskPlaced = useAppSelector((s) => selectIsPlaced(s, "desk"));
+  const chairPlaced = useAppSelector((s) => selectIsPlaced(s, "chair"));
+  const look = useAppSelector(selectTheme).scene;
+  const set = FURNITURE_SETS[look.furniture];
+  // デスクとイスがあれば、テーマによってはイスに座って過ごす
+  const seat = set?.seat && deskPlaced && chairPlaced ? set.seat : null;
+  const bedSpot = set?.bedSpot ?? RESIDENT_ON_BED;
+  const naturalDecor = !set || set.keepNaturalDecor;
+  const Decor = set?.decor;
+
+  /** テーマの家具があればそれを、なければ森の家具を描く */
+  const piece = (id: FurnitureId, fallback: ReactNode, children?: ReactNode) => {
+    const P: Piece | undefined = set?.pieces[id];
+    return <Draggable id={id}>{P ? <P glow={tex.glow}>{children}</P> : fallback}</Draggable>;
+  };
+  const resident = (position: V3) => <Resident avatar={avatar} position={position} />;
+
   return (
     <>
-      <hemisphereLight args={["#f2f6e2", "#a58563", 1.15]} />
+      <hemisphereLight args={look.hemi} />
       {/* 窓から差し込む光 */}
       <directionalLight
-        position={[3.5, 6, -9]}
-        intensity={2.2}
-        color="#ffe9b8"
+        position={look.sun.position}
+        intensity={look.sun.intensity}
+        color={look.sun.color}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-left={-6}
         shadow-camera-right={6}
         shadow-camera-top={6}
@@ -997,37 +1007,40 @@ function Scene() {
         shadow-camera-far={25}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
+        shadow-radius={4}
       />
-      <pointLight position={[-2.3, 1.2, -0.2]} color="#ffb866" intensity={2.2} distance={3.5} decay={2} />
+      <pointLight position={[-2.3, 1.2, -0.2]} color={look.lamp.color} intensity={look.lamp.intensity} distance={4} decay={2} />
+      {look.washes.map((w, i) => (
+        <WashLight key={`${look.furniture}-${i}`} wash={w} />
+      ))}
+      {/* やわらかい周りの光（光る板を並べた環境。画像の読み込みはしない） */}
+      <Environment resolution={128} environmentIntensity={look.envIntensity} frames={1}>
+        <Lightformer form="rect" intensity={2} color={look.sun.color} position={[0, 5, -6]} scale={[10, 4, 1]} />
+        <Lightformer form="rect" intensity={1} color={look.hemi[0]} position={[-6, 3, 2]} rotation-y={Math.PI / 2} scale={[8, 3, 1]} />
+        <Lightformer form="ring" intensity={1.5} color={look.lamp.color} position={[4, 2, 4]} scale={2} />
+      </Environment>
 
-      <Walls tex={tex} />
-      <Shelf tex={tex} />
+      <Walls tex={tex} look={look} />
+      {naturalDecor && <Shelf tex={tex} />}
+      {Decor && <Decor glow={tex.glow} />}
 
       {/* ドラッグで動かせて、バッグに出し入れできる家具 */}
-      <Draggable id="rug">
-        <Rug />
-      </Draggable>
+      {piece("rug", <Rug />)}
       <Draggable id="cat">
         <Cat position={[-0.1, 0.012, 1.0]} tex={tex} />
       </Draggable>
       <Draggable id="backpack">
         <Backpack />
       </Draggable>
-      <Draggable id="bed">
-        <Bed>
-          <Resident avatar={avatar} position={RESIDENT_ON_BED} />
-        </Bed>
-      </Draggable>
-      {!bedPlaced && <Resident avatar={avatar} position={RESIDENT_ON_FLOOR} />}
-      <Draggable id="desk">
-        <Desk tex={tex} />
-      </Draggable>
-      <Draggable id="chair">
-        <Chair />
-      </Draggable>
-      <Draggable id="sideTable">
-        <SideTable tex={tex} />
-      </Draggable>
+      {piece("bed", <Bed>{!seat && resident(bedSpot)}</Bed>, !seat && resident(bedSpot))}
+      {!bedPlaced && !seat && resident(RESIDENT_ON_FLOOR)}
+      {piece("desk", <Desk tex={tex} />)}
+      {piece(
+        "chair",
+        <Chair />,
+        seat && <Resident avatar={avatar} position={seat.position} pose={seat.pose} headphones={seat.headphones} />,
+      )}
+      {piece("sideTable", <SideTable tex={tex} />)}
       <Draggable id="plantRight">
         <ShadowGroup>
           <Plant position={[2.5, 0, 1.9]} scale={1.6} phase={0.5} pot="#c9a27a" />
@@ -1038,24 +1051,14 @@ function Scene() {
           <Plant position={[-2.45, 0, 2.2]} scale={1.4} phase={1.6} />
         </ShadowGroup>
       </Draggable>
-      <Draggable id="bookshelf">
-        <Bookshelf />
-      </Draggable>
-      <Draggable id="sofa">
-        <Sofa />
-      </Draggable>
+      {piece("bookshelf", <Bookshelf />)}
+      {piece("sofa", <Sofa />)}
       <Draggable id="beanbag">
         <Beanbag />
       </Draggable>
-      <Draggable id="lowTable">
-        <LowTable glow={tex.glow} />
-      </Draggable>
-      <Draggable id="floorLamp">
-        <FloorLamp glow={tex.glow} />
-      </Draggable>
-      <Draggable id="guitar">
-        <Guitar />
-      </Draggable>
+      {piece("lowTable", <LowTable glow={tex.glow} />)}
+      {piece("floorLamp", <FloorLamp glow={tex.glow} />)}
+      {piece("guitar", <Guitar />)}
       <Draggable id="fishbowl">
         <Fishbowl />
       </Draggable>
@@ -1063,21 +1066,59 @@ function Scene() {
         <Cactus />
       </Draggable>
 
-      <ShadowGroup>
-        <Plant position={[WIN.cx - 0.55, WIN.bottom - 0.08, -2.82]} scale={0.8} phase={1} />
-        <Plant position={[WIN.cx + 0.55, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#c9a27a" />
-      </ShadowGroup>
-      <HangingPlant position={[WIN.cx - 0.55, 3.1, -2.75]} />
-      <HangingPlant position={[WIN.cx + 0.6, 3.1, -2.75]} phase={1.8} />
-
-      <FairyLights from={[-2.9, 3.4, -2.88]} to={[2.9, 3.4, -2.88]} tex={tex} />
-      <FairyLights from={[-2.88, 3.4, -2.9]} to={[-2.88, 3.4, 2.9]} tex={tex} />
-      <Fireflies tex={tex} />
+      {naturalDecor ? (
+        <>
+          <ShadowGroup>
+            <Plant position={[WIN.cx - 0.55, WIN.bottom - 0.08, -2.82]} scale={0.8} phase={1} />
+            <Plant position={[WIN.cx + 0.55, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#c9a27a" />
+          </ShadowGroup>
+          <HangingPlant position={[WIN.cx - 0.55, 3.1, -2.75]} />
+          <HangingPlant position={[WIN.cx + 0.6, 3.1, -2.75]} phase={1.8} />
+          <FairyLights from={[-2.9, 3.4, -2.88]} to={[2.9, 3.4, -2.88]} tex={tex} color={look.bulb} />
+          <FairyLights from={[-2.88, 3.4, -2.9]} to={[-2.88, 3.4, 2.9]} tex={tex} color={look.bulb} />
+        </>
+      ) : (
+        <ShadowGroup>
+          <Plant position={[WIN.cx + 0.6, WIN.bottom - 0.08, -2.82]} scale={0.7} phase={2.4} pot="#e8e6e2" />
+        </ShadowGroup>
+      )}
+      {look.particles !== "none" && <Fireflies tex={tex} color={look.particleColor} kind={look.particles} />}
     </>
   );
 }
 
-/** 画面の縦横比に合わせてズームし、縦長の画面でも部屋が切れないようにする */
+/** テーマの明るさと、光のにじみ（ブルーム）・周辺の暗さ（ビネット） */
+function Effects({ quality }: { quality: Quality }) {
+  const look = useAppSelector(selectTheme).scene;
+  const get = useThree((s) => s.get);
+  useEffect(() => {
+    get().gl.toneMappingExposure = look.exposure;
+  }, [get, look.exposure]);
+  return (
+    <EffectComposer multisampling={0} stencilBuffer>
+      {/* すみの陰りは重いので、動きがカクつくPCでは切る */}
+      <N8AO aoRadius={0.6} distanceFalloff={0.6} intensity={quality === "high" ? look.ao : 0} quality="performance" halfRes />
+      <Bloom mipmapBlur intensity={look.bloom} luminanceThreshold={0.82} luminanceSmoothing={0.25} radius={0.75} />
+      <Vignette eskil={false} offset={0.3} darkness={0.55} />
+    </EffectComposer>
+  );
+}
+
+type Quality = "high" | "low";
+
+/**
+ * 描く回数をおさえる。ふだんは 1 秒に 30 回、部屋を回しているときや模様替え中は 60 回にする。
+ * （勉強中にずっと開いておくアプリなので、パソコンの負担を減らす）
+ */
+function FrameLimiter({ fast }: { fast: boolean }) {
+  const invalidate = useThree((s) => s.invalidate);
+  useEffect(() => {
+    const id = window.setInterval(() => invalidate(), 1000 / (fast ? 60 : 30));
+    return () => window.clearInterval(id);
+  }, [invalidate, fast]);
+  return null;
+}
+
 function FitToScreen() {
   // three.js のカメラは React の state ではなく外部のオブジェクトなので、
   // hook の戻り値を直接書き換えず、effect の中で get() から取り出して更新する
@@ -1085,7 +1126,7 @@ function FitToScreen() {
   const aspect = useThree((s) => s.size.width / s.size.height);
   useEffect(() => {
     const camera = get().camera as THREE.PerspectiveCamera;
-    camera.zoom = Math.min(1, aspect / 1.2);
+    camera.zoom = Math.min(1.25, aspect / 1.2);
     camera.updateProjectionMatrix();
   }, [get, aspect]);
   return null;
@@ -1096,11 +1137,17 @@ export default function Room() {
   const dispatch = useAppDispatch();
   // ログイン中なら、その人の部屋（家具の配置・壁紙・住人）を読み込む
   useRoomSync();
+  const editing = useAppSelector(selectIsEditingLayout);
+  const [orbiting, setOrbiting] = useState(false);
+  // 画面の細かさ（解像度）と画質。カクつくようなら自動で下げる
+  const [dpr, setDpr] = useState(1.5);
+  const [quality, setQuality] = useState<Quality>("high");
   return (
     <div className="room-container">
       <Canvas
         shadows
-        dpr={[1, 2]}
+        frameloop="demand"
+        dpr={dpr}
         gl={{ antialias: true, alpha: true, stencil: true }}
         camera={{ position: [9.8, 7.4, 9.8], fov: 32, near: 0.5, far: 90 }}
         onCreated={({ gl }) => {
@@ -1110,10 +1157,26 @@ export default function Room() {
         // 家具以外をクリックしたら、選んでいた家具の選択を外す
         onPointerMissed={() => dispatch(selectFurniture(null))}
       >
+        <PerformanceMonitor
+          onDecline={() => {
+            setDpr(1);
+            setQuality("low");
+          }}
+          onIncline={() => setDpr(1.5)}
+          flipflops={3}
+          onFallback={() => {
+            setDpr(1);
+            setQuality("low");
+          }}
+        />
+        <FrameLimiter fast={editing || orbiting} />
         <Scene />
         <FitToScreen />
+        <Effects quality={quality} />
         <OrbitControls
           makeDefault
+          onStart={() => setOrbiting(true)}
+          onEnd={() => setOrbiting(false)}
           target={[0, 1.2, 0]}
           enablePan={false}
           enableDamping

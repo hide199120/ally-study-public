@@ -11,11 +11,11 @@
   position: absolute;
   left: 50%;
   top: 52%;
-  width: min(70vw, 80vh);
+  width: 80%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 214, 140, 0.45), rgba(255, 240, 190, 0.15) 45%, transparent 70%);
+  background: radial-gradient(circle, var(--glow), transparent 70%);
   filter: blur(40px);
   z-index: -1;
   pointer-events: none;
@@ -27,11 +27,11 @@
   position: absolute;
   left: 50%;
   bottom: 9%;
-  width: min(52vw, 62vh);
-  height: min(7vw, 8vh);
+  width: 62%;
+  height: 7%;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(52, 88, 46, 0.25), transparent);
+  background: radial-gradient(closest-side, rgb(var(--shadow-rgb) / 0.25), transparent);
   filter: blur(10px);
   z-index: -1;
   pointer-events: none;
@@ -54,11 +54,11 @@
   transform: translateX(-50%);
   padding: 6px 16px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgb(var(--surface-rgb) / 0.45);
+  border: 1px solid rgb(var(--surface-rgb) / 0.7);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  color: #3d6b3a;
+  color: rgb(var(--accent-deep-rgb));
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -85,8 +85,8 @@
   margin: 0;
   padding: 6px 14px;
   border-radius: 999px;
-  background: rgba(61, 107, 58, 0.85);
-  color: #fffbea;
+  background: rgb(var(--accent-deep-rgb) / 0.85);
+  color: var(--on-accent);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -103,12 +103,12 @@
 .room-btn {
   padding: 8px 18px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 6px 16px -10px rgba(52, 88, 46, 0.5);
+  background: rgb(var(--surface-rgb) / 0.55);
+  border: 1px solid rgb(var(--surface-rgb) / 0.8);
+  box-shadow: 0 6px 16px -10px rgb(var(--shadow-rgb) / 0.5);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  color: #3d6b3a;
+  color: rgb(var(--accent-deep-rgb));
   font: inherit;
   font-size: 13px;
   font-weight: 700;
@@ -117,7 +117,7 @@
   transition: background 0.2s ease, transform 0.2s ease;
 }
 .room-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgb(var(--surface-rgb) / 0.85);
   transform: translateY(-1px);
 }
 .room-btn:disabled {
@@ -125,16 +125,16 @@
   cursor: default;
 }
 .room-btn:focus-visible {
-  outline: 2px solid #5f9d57;
+  outline: 2px solid rgb(var(--accent-rgb));
   outline-offset: 2px;
 }
 .room-btn--primary {
-  background: #5f9d57;
-  border-color: #5f9d57;
-  color: #fffbea;
+  background: rgb(var(--accent-rgb));
+  border-color: rgb(var(--accent-rgb));
+  color: var(--on-accent);
 }
 .room-btn--primary:hover:not(:disabled) {
-  background: #3d6b3a;
+  background: rgb(var(--accent-deep-rgb));
 }
 
 @media (max-width: 640px) {

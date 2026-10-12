@@ -24,11 +24,11 @@
   border: 0;
   border-radius: 50%;
   background: var(--leaf);
-  box-shadow: 0 4px 12px -4px rgba(61, 107, 58, 0.6);
+  box-shadow: 0 4px 12px -4px rgb(var(--accent-deep-rgb) / 0.6);
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.2s ease;
 }
-.sound-bar__play svg { width: 18px; height: 18px; fill: #fffbea; }
+.sound-bar__play svg { width: 18px; height: 18px; fill: var(--on-accent); }
 .sound-bar__play:hover { transform: scale(1.05); }
 .sound-bar__play:active { transform: scale(0.96); }
 .sound-bar.is-playing .sound-bar__play { background: var(--leaf-deep); }
@@ -124,11 +124,11 @@
   gap: 4px;
   padding: 4px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgb(var(--surface-rgb) / 0.35);
+  border: 1px solid rgb(var(--surface-rgb) / 0.6);
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-.sound-item.is-on { background: rgba(255, 255, 255, 0.75); border-color: rgba(95, 157, 87, 0.55); }
+.sound-item.is-on { background: rgb(var(--surface-rgb) / 0.75); border-color: rgb(var(--accent-rgb) / 0.55); }
 
 .sound-item__toggle {
   display: flex;
@@ -146,7 +146,7 @@
   text-align: left;
   cursor: pointer;
 }
-.sound-item__toggle:hover { background: rgba(255, 255, 255, 0.5); }
+.sound-item__toggle:hover { background: rgb(var(--surface-rgb) / 0.5); }
 .sound-item__icon { font-size: 16px; line-height: 1; }
 .sound-item__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sound-item.is-on .sound-item__toggle::after {
@@ -156,7 +156,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--leaf);
-  box-shadow: 0 0 0 3px rgba(95, 157, 87, 0.2);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.2);
 }
 
 .sound-item__volume {
@@ -170,16 +170,16 @@
   display: block;
   margin: 14px auto 2px;
   padding: 6px 16px;
-  border: 1px solid rgba(61, 107, 58, 0.25);
+  border: 1px solid rgb(var(--accent-deep-rgb) / 0.25);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgb(var(--surface-rgb) / 0.5);
   font: inherit;
   font-size: 12px;
   font-weight: 700;
   color: var(--ink-soft);
   cursor: pointer;
 }
-.sound-panel__stop:hover:not(:disabled) { background: rgba(255, 255, 255, 0.85); color: var(--ink); }
+.sound-panel__stop:hover:not(:disabled) { background: rgb(var(--surface-rgb) / 0.85); color: var(--ink); }
 .sound-panel__stop:disabled { opacity: 0.5; cursor: default; }
 
 @media (max-width: 640px) {
