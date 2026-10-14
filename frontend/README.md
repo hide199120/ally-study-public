@@ -1,75 +1,45 @@
-# React + TypeScript + Vite
+# frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ally-study のフロントエンドです（React + TypeScript + Vite）。
+全体の説明は [ルートの README](../README.md) を参照してください。
 
-Currently, two official plugins are available:
+## 起動
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+API サーバー（`docker compose up`）を起動したうえで、次を実行します。
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
+npm run dev   # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+`/api` へのリクエストは `vite.config.ts` の設定で `http://localhost:8080` に転送されます。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## コマンド
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` | 開発サーバーを起動 |
+| `npm test` | Jest + Testing Library でテスト |
+| `npm run lint` | ESLint |
+| `npm run build` | 型チェック（tsc）とビルド |
+| `npm run gen:api` | `../api/openapi.yaml` から API の型（`src/api/schema.d.ts`）を生成 |
+
+## ディレクトリ構成
 
 ```
+src/
+├── app/          # Redux の store と型付きの hooks
+├── api/          # OpenAPI から生成した型
+├── features/     # 機能ごとのコード（slice・RTK Query・コンポーネント・テストを同じ場所に置く）
+│   ├── auth/     # 新規登録・ログイン・退会
+│   ├── room/     # 3D の部屋・家具・模様替え（React Three Fiber）
+│   ├── sound/    # BGM・環境音の生成と再生
+│   ├── study/    # タイマー・学習記録・目標・グラフ
+│   └── theme/    # テーマの切り替え
+└── test/         # テスト用の設定とヘルパー
+```
+
+## 状態管理の方針
+
+- 画面の状態（テーマ・模様替え中かどうか・タイマーなど）は Redux Toolkit の slice で管理
+- サーバーとのやり取りは RTK Query（`authApi` / `roomApi` / `studyApi`）で行い、キャッシュも任せる
