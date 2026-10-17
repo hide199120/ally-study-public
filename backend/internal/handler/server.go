@@ -40,6 +40,13 @@ type StudyService interface {
 	UpdateGoals(ctx context.Context, userID int64, goals []model.StudyGoal) ([]model.StudyGoal, error)
 }
 
+// AnalyticsService はアクセス解析の処理（service.AnalyticsService が満たす）。
+type AnalyticsService interface {
+	Record(ctx context.Context, userID *int64, batch model.AnalyticsBatch) error
+	Daily(ctx context.Context, from, to string) ([]model.AnalyticsDailyRow, error)
+	Export(ctx context.Context, from, to string, fn func(model.AnalyticsEvent) error) error
+}
+
 // CookieConfig はセッションCookieの設定。
 type CookieConfig struct {
 	// Secure を true にすると HTTPS のときだけ Cookie が送られる（本番では true にする）
@@ -48,11 +55,14 @@ type CookieConfig struct {
 
 // Server は OpenAPI から生成した api.ServerInterface を実装する。
 type Server struct {
-	DB     Pinger
-	Auth   AuthService
-	Room   RoomService
-	Study  StudyService
-	Cookie CookieConfig
+	DB        Pinger
+	Auth      AuthService
+	Room      RoomService
+	Study     StudyService
+	Analytics AnalyticsService
+	Cookie    CookieConfig
+	// AdminUserIDs は管理者のユーザーID。アクセス解析の集計・書き出しを使える
+	AdminUserIDs []int64
 }
 
 // OpenAPI のエンドポイントを実装し忘れたら、ここでコンパイルエラーになる
@@ -66,4 +76,10 @@ func errorJSON(c *gin.Context, status int, code, message string) {
 // toAPIUser はアプリ内の User を、APIのレスポンス用の形に変換する（パスワードのハッシュは含めない）。
 func toAPIUser(u *model.User) api.User {
 	return api.User{Id: u.ID, Username: u.Username, CreatedAt: u.CreatedAt}
+}
+
+// ParamErrorHandler は、クエリパラメーターの形式が違うときのレスポンス（OpenAPI から生成したコードが呼ぶ）。
+// 生成コードの初期設定の形ではなく、ほかの API と同じ Error の形で返す。
+func ParamErrorHandler(c *gin.Context, _ error, status int) {
+	errorJSON(c, status, "validation_error", "リクエストの形式が正しくありません")
 }

@@ -29,3 +29,16 @@ services:
         sync: false
       - key: DB_PASSWORD
         sync: false
+      # 管理者のユーザーID（カンマ区切り）。アクセス解析の管理画面（/admin）を見られる
+      - key: ADMIN_USER_IDS
+        sync: false
+      # アクセス解析用の DB（TiDB Cloud Starter の別インスタンス）。設定しなければ本体と同じ DB を使う
+      # 別インスタンスにしておくと、解析で無料枠を使い切っても本体は止まらない
+      - key: ANALYTICS_DB_HOST
+        sync: false
+      - key: ANALYTICS_DB_NAME
+        sync: false
+      - key: ANALYTICS_DB_USER
+        sync: false
+      - key: ANALYTICS_DB_PASSWORD
+        sync: false

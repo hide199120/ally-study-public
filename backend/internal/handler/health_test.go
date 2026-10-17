@@ -20,7 +20,7 @@ func (f fakePinger) PingContext(context.Context) error { return f.err }
 func newTestRouter(s *Server) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	api.RegisterHandlersWithOptions(r, s, api.GinServerOptions{BaseURL: "/api"})
+	api.RegisterHandlersWithOptions(r, s, api.GinServerOptions{BaseURL: "/api", ErrorHandler: ParamErrorHandler})
 	return r
 }
 

@@ -36,6 +36,26 @@ Render の無料プランは、15 分アクセスがないと止まり、次の�
 
 4. デプロイが終わったら、表示された URL（`https://〜.onrender.com`）を開いて動作を確認する
 
+## 3. アクセス解析（任意）
+
+利用状況のイベント（画面を開いた・BGM を流したなど）は、本体とは別の DB に保存できます。
+別にしておくと、解析で無料枠を使い切っても本体は止まりません。設定しなければ本体と同じ DB に保存します。
+
+1. TiDB Cloud で **Starter** のクラスターをもう1つ作り（無料枠はクラスターごと）、`CREATE DATABASE ally_analytics;` を実行する
+2. Render の「Environment」に次の値を追加する
+
+   | 環境変数 | 値 |
+   |---|---|
+   | `ANALYTICS_DB_HOST` | 解析用クラスターの Host |
+   | `ANALYTICS_DB_NAME` | `ally_analytics` |
+   | `ANALYTICS_DB_USER` | 解析用クラスターの User |
+   | `ANALYTICS_DB_PASSWORD` | 解析用クラスターの Password |
+   | `ADMIN_USER_IDS` | 管理画面を見られるユーザーの ID（カンマ区切り） |
+
+3. 管理者でログインして `/admin` を開くと、日別のグラフが見られる。生ログは JSON Lines でダウンロードできる
+
+テーブルは起動時に自動で作られます。管理者以外が `/admin` の API を呼ぶと 404 を返します。
+
 ## 本番で有効になる設定
 
 | 環境変数 | 値 | 意味 |

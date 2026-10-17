@@ -1,4 +1,5 @@
 import { configureStore } from '@reduxjs/toolkit'
+import { analyticsListener } from '../features/analytics/analyticsListener'
 import { authApi } from '../features/auth/authApi'
 import { authDialogReducer } from '../features/auth/authDialogSlice'
 import { roomLayoutReducer } from '../features/room/roomLayoutSlice'
@@ -16,7 +17,8 @@ export function makeStore() {
       theme: themeReducer,
       [authApi.reducerPath]: authApi.reducer,
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(authApi.middleware),
+    // 解析のリスナーは、アクションを見るだけで状態は変えない
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(analyticsListener.middleware).concat(authApi.middleware),
   })
 }
 

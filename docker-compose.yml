@@ -34,6 +34,21 @@ services:
       db:
         condition: service_healthy
 
+  # アクセス解析用のマイグレーション（backend/db/analytics）
+  # 本番は別の DB（インスタンス）に置くが、ローカルは同じ DB に同居させる。
+  # 適用済みの番号は本体と混ざらないよう、別のテーブル（analytics_schema_migrations）に記録する
+  migrate-analytics:
+    image: migrate/migrate:v4.18.3
+    volumes:
+      - ./backend/db/analytics:/migrations:ro
+    command:
+      - -path=/migrations
+      - -database=mysql://${DB_USER:-ally}:${DB_PASSWORD:-ally_password}@tcp(db:3306)/${DB_NAME:-ally_study}?multiStatements=true&x-migrations-table=analytics_schema_migrations
+      - up
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: ./backend
     environment:
@@ -43,12 +58,16 @@ services:
       DB_NAME: ${DB_NAME:-ally_study}
       DB_USER: ${DB_USER:-ally}
       DB_PASSWORD: ${DB_PASSWORD:-ally_password}
+      # 管理者のユーザーID（カンマ区切り）。アクセス解析の管理画面（/admin）を見られる
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      migrate-analytics:
         condition: service_completed_successfully
 
 volumes:
