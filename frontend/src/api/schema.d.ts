@@ -208,6 +208,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analytics/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 利用状況のイベントを記録
+         * @description 画面を開いた・BGMを流したなどのイベントを、まとめて記録します。ログインしていなくても使えます。
+         *     ログイン中ならユーザーIDを、記録した時刻とあわせてサーバー側で付けます（送られてきた値は使わない）。
+         *     解析用の DB に保存するので、本体の DB の負荷や無料枠には影響しません。
+         */
+        post: operations["recordAnalyticsEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/analytics/daily": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 日別の集計（管理者のみ）
+         * @description 期間内の、日付（日本時間）とイベントごとの件数と人数を返します。グラフの表示に使います。
+         *     管理者以外（ログインしていない人も含む）には、APIの存在を知られないように 404 を返します。
+         */
+        get: operations["getAnalyticsDaily"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/analytics/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 生ログの書き出し（管理者のみ）
+         * @description 期間内のイベントを、1行に1件の JSON（JSON Lines）で返します。ダウンロードしてテキストエディタで読む用です。
+         *     管理者以外（ログインしていない人も含む）には 404 を返します。
+         */
+        get: operations["exportAnalyticsEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -386,6 +450,72 @@ export interface components {
             /** @description 目標の一覧（表示順） */
             goals: components["schemas"]["StudyGoal"][];
         };
+        /**
+         * @description イベントの種類
+         *     - page_view: 画面を開いた（properties: source=流入元, referrer=参照元のホスト）
+         *     - page_leave: 画面を閉じた・離れた（properties: durationSec=表示していた秒数）
+         *     - sound_play / sound_stop: BGM・環境音を流した / 止めた（properties: soundId, durationSec）
+         *     - room_save: 模様替えを保存した
+         *     - study_session: タイマーで勉強時間を記録した（properties: minutes）
+         *     - theme_change: テーマを変えた（properties: theme）
+         *     - signup / login / account_delete: 新規登録 / ログイン / 退会
+         *     - client_error: 画面でエラーが起きた（properties: message）
+         * @example page_view
+         * @enum {string}
+         */
+        AnalyticsEventName: "page_view" | "page_leave" | "sound_play" | "sound_stop" | "room_save" | "study_session" | "theme_change" | "signup" | "login" | "account_delete" | "client_error";
+        /**
+         * @description 端末の種類
+         * @example pc
+         * @enum {string}
+         */
+        AnalyticsDevice: "pc" | "mobile";
+        AnalyticsEventInput: {
+            name: components["schemas"]["AnalyticsEventName"];
+            /**
+             * @description イベントごとの追加情報（JSON にして 1KB まで）
+             * @example {
+             *       "source": "x"
+             *     }
+             */
+            properties?: {
+                [key: string]: unknown;
+            };
+        };
+        AnalyticsEventBatch: {
+            /**
+             * @description ブラウザごとの匿名ID（ログインしていなくても、同じ人の再訪を数えるため）。UUID の形式
+             * @example 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+             */
+            anonymousId: string;
+            device: components["schemas"]["AnalyticsDevice"];
+            events: components["schemas"]["AnalyticsEventInput"][];
+        };
+        AnalyticsDailyRow: {
+            date: components["schemas"]["LocalDate"];
+            name: components["schemas"]["AnalyticsEventName"];
+            /**
+             * @description イベントの件数
+             * @example 42
+             */
+            events: number;
+            /**
+             * @description そのイベントがあった人数（匿名IDの数）
+             * @example 17
+             */
+            visitors: number;
+            /**
+             * @description properties.durationSec の合計（page_leave なら滞在時間、sound_stop なら再生時間の合計。秒）
+             * @example 5400
+             */
+            durationSec: number;
+        };
+        AnalyticsDaily: {
+            from: components["schemas"]["LocalDate"];
+            to: components["schemas"]["LocalDate"];
+            /** @description 日付・イベントごとの集計（日付の古い順）。件数が 0 の日は含まない */
+            rows: components["schemas"]["AnalyticsDailyRow"][];
+        };
     };
     responses: {
         /** @description 入力内容が不正 */
@@ -418,6 +548,21 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description 見つからない（管理者向けAPIを管理者以外が呼んだときも、これを返す） */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "not_found",
+                 *       "message": "見つかりません"
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description 短い時間にリクエストが多すぎる（しばらく待ってから再度試す） */
         TooManyRequests: {
             headers: {
@@ -436,7 +581,12 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        /** @description 集計する期間の開始日（日本時間、この日を含む） */
+        AnalyticsFrom: components["schemas"]["LocalDate"];
+        /** @description 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日 */
+        AnalyticsTo: components["schemas"]["LocalDate"];
+    };
     requestBodies: never;
     headers: {
         /** @description `session_id` Cookie（HttpOnly; SameSite=Lax; Path=/） */
@@ -780,6 +930,85 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    recordAnalyticsEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnalyticsEventBatch"];
+            };
+        };
+        responses: {
+            /** @description 記録成功 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getAnalyticsDaily: {
+        parameters: {
+            query: {
+                /** @description 集計する期間の開始日（日本時間、この日を含む） */
+                from: components["parameters"]["AnalyticsFrom"];
+                /** @description 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日 */
+                to: components["parameters"]["AnalyticsTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 取得成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsDaily"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    exportAnalyticsEvents: {
+        parameters: {
+            query: {
+                /** @description 集計する期間の開始日（日本時間、この日を含む） */
+                from: components["parameters"]["AnalyticsFrom"];
+                /** @description 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日 */
+                to: components["parameters"]["AnalyticsTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 書き出し成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /** @example {"name":"page_view","anonymousId":"8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71","userId":null,"device":"pc","properties":{"source":"x"},"createdAt":"2026-10-17T08:00:00Z"} */
+                    "application/x-ndjson": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
 }

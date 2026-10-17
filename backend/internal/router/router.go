@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/hide199120/ally-study/backend/internal/api"
+	"github.com/hide199120/ally-study/backend/internal/handler"
 	"github.com/hide199120/ally-study/backend/internal/middleware"
 	"github.com/hide199120/ally-study/backend/internal/ratelimit"
 )
@@ -34,6 +35,7 @@ const maxBodyBytes = 64 << 10
 //   - 新規登録：1時間に10回、全体で1日500回（アカウントの大量作成を防ぐ）
 //   - ログイン：1分に10回、1時間に60回（パスワードの総当たりを防ぐ）
 //   - 退会：10分に5回（パスワードの総当たりを防ぐ）
+//   - アクセス解析の記録：1分に30回、全体で1時間に600回（解析用 DB の無料枠を使い切られないように）
 //   - 書き込み全般：1分に120回、API 全体：1分に600回
 func DefaultLimits() []middleware.Rule {
 	post := []string{http.MethodPost}
@@ -45,6 +47,8 @@ func DefaultLimits() []middleware.Rule {
 		{Methods: post, Path: "/api/auth/login", Limiter: ratelimit.New(10, time.Minute)},
 		{Methods: post, Path: "/api/auth/login", Limiter: ratelimit.New(60, time.Hour)},
 		{Methods: []string{http.MethodDelete}, Path: "/api/me", Limiter: ratelimit.New(5, 10*time.Minute)},
+		{Methods: post, Path: "/api/analytics/events", Limiter: ratelimit.New(30, time.Minute)},
+		{Methods: post, Path: "/api/analytics/events", Global: true, Limiter: ratelimit.New(600, time.Hour)},
 		{Methods: writes, Prefix: "/api/", Limiter: ratelimit.New(120, time.Minute)},
 		{Prefix: "/api/", Limiter: ratelimit.New(600, time.Minute)},
 	}
@@ -74,7 +78,11 @@ func New(server api.ServerInterface, opts Options) (*gin.Engine, error) {
 		middleware.SameOrigin(),
 	)
 
-	api.RegisterHandlersWithOptions(r, server, api.GinServerOptions{BaseURL: "/api"})
+	api.RegisterHandlersWithOptions(r, server, api.GinServerOptions{
+		BaseURL: "/api",
+		// クエリパラメーターの形式が違うときも、ほかの API と同じ Error の形で返す
+		ErrorHandler: handler.ParamErrorHandler,
+	})
 
 	if opts.StaticDir != "" {
 		r.NoRoute(middleware.SPA(opts.StaticDir))

@@ -4,10 +4,76 @@
 package api
 
 import (
+	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for AnalyticsDevice.
+const (
+	AnalyticsDeviceMobile AnalyticsDevice = "mobile"
+	AnalyticsDevicePc     AnalyticsDevice = "pc"
+)
+
+// Valid indicates whether the value is a known member of the AnalyticsDevice enum.
+func (e AnalyticsDevice) Valid() bool {
+	switch e {
+	case AnalyticsDeviceMobile:
+		return true
+	case AnalyticsDevicePc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalyticsEventName.
+const (
+	AnalyticsEventNameAccountDelete AnalyticsEventName = "account_delete"
+	AnalyticsEventNameClientError   AnalyticsEventName = "client_error"
+	AnalyticsEventNameLogin         AnalyticsEventName = "login"
+	AnalyticsEventNamePageLeave     AnalyticsEventName = "page_leave"
+	AnalyticsEventNamePageView      AnalyticsEventName = "page_view"
+	AnalyticsEventNameRoomSave      AnalyticsEventName = "room_save"
+	AnalyticsEventNameSignup        AnalyticsEventName = "signup"
+	AnalyticsEventNameSoundPlay     AnalyticsEventName = "sound_play"
+	AnalyticsEventNameSoundStop     AnalyticsEventName = "sound_stop"
+	AnalyticsEventNameStudySession  AnalyticsEventName = "study_session"
+	AnalyticsEventNameThemeChange   AnalyticsEventName = "theme_change"
+)
+
+// Valid indicates whether the value is a known member of the AnalyticsEventName enum.
+func (e AnalyticsEventName) Valid() bool {
+	switch e {
+	case AnalyticsEventNameAccountDelete:
+		return true
+	case AnalyticsEventNameClientError:
+		return true
+	case AnalyticsEventNameLogin:
+		return true
+	case AnalyticsEventNamePageLeave:
+		return true
+	case AnalyticsEventNamePageView:
+		return true
+	case AnalyticsEventNameRoomSave:
+		return true
+	case AnalyticsEventNameSignup:
+		return true
+	case AnalyticsEventNameSoundPlay:
+		return true
+	case AnalyticsEventNameSoundStop:
+		return true
+	case AnalyticsEventNameStudySession:
+		return true
+	case AnalyticsEventNameThemeChange:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for Avatar.
 const (
@@ -176,6 +242,113 @@ func (e Wallpaper) Valid() bool {
 		return false
 	}
 }
+
+// AnalyticsDaily defines model for AnalyticsDaily.
+type AnalyticsDaily struct {
+	// From ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	From LocalDate `json:"from"`
+
+	// Rows 日付・イベントごとの集計（日付の古い順）。件数が 0 の日は含まない
+	Rows []AnalyticsDailyRow `json:"rows"`
+
+	// To ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	To LocalDate `json:"to"`
+}
+
+// AnalyticsDailyRow defines model for AnalyticsDailyRow.
+type AnalyticsDailyRow struct {
+	// Date ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+	//
+	// Example: 2026-10-12
+	Date LocalDate `json:"date"`
+
+	// DurationSec properties.durationSec の合計（page_leave なら滞在時間、sound_stop なら再生時間の合計。秒）
+	//
+	// Example: 5400
+	DurationSec int `json:"durationSec"`
+
+	// Events イベントの件数
+	//
+	// Example: 42
+	Events int `json:"events"`
+
+	// Name イベントの種類
+	// - page_view: 画面を開いた（properties: source=流入元, referrer=参照元のホスト）
+	// - page_leave: 画面を閉じた・離れた（properties: durationSec=表示していた秒数）
+	// - sound_play / sound_stop: BGM・環境音を流した / 止めた（properties: soundId, durationSec）
+	// - room_save: 模様替えを保存した
+	// - study_session: タイマーで勉強時間を記録した（properties: minutes）
+	// - theme_change: テーマを変えた（properties: theme）
+	// - signup / login / account_delete: 新規登録 / ログイン / 退会
+	// - client_error: 画面でエラーが起きた（properties: message）
+	//
+	//
+	// Example: page_view
+	Name AnalyticsEventName `json:"name"`
+
+	// Visitors そのイベントがあった人数（匿名IDの数）
+	//
+	// Example: 17
+	Visitors int `json:"visitors"`
+}
+
+// AnalyticsDevice 端末の種類
+//
+// Example: pc
+type AnalyticsDevice string
+
+// AnalyticsEventBatch defines model for AnalyticsEventBatch.
+type AnalyticsEventBatch struct {
+	// AnonymousId ブラウザごとの匿名ID（ログインしていなくても、同じ人の再訪を数えるため）。UUID の形式
+	//
+	// Example: 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+	AnonymousId string `json:"anonymousId"`
+
+	// Device 端末の種類
+	//
+	// Example: pc
+	Device AnalyticsDevice       `json:"device"`
+	Events []AnalyticsEventInput `json:"events"`
+}
+
+// AnalyticsEventInput defines model for AnalyticsEventInput.
+type AnalyticsEventInput struct {
+	// Name イベントの種類
+	// - page_view: 画面を開いた（properties: source=流入元, referrer=参照元のホスト）
+	// - page_leave: 画面を閉じた・離れた（properties: durationSec=表示していた秒数）
+	// - sound_play / sound_stop: BGM・環境音を流した / 止めた（properties: soundId, durationSec）
+	// - room_save: 模様替えを保存した
+	// - study_session: タイマーで勉強時間を記録した（properties: minutes）
+	// - theme_change: テーマを変えた（properties: theme）
+	// - signup / login / account_delete: 新規登録 / ログイン / 退会
+	// - client_error: 画面でエラーが起きた（properties: message）
+	//
+	//
+	// Example: page_view
+	Name AnalyticsEventName `json:"name"`
+
+	// Properties イベントごとの追加情報（JSON にして 1KB まで）
+	//
+	// Example: {"source":"x"}
+	Properties *map[string]interface{} `json:"properties,omitempty"`
+}
+
+// AnalyticsEventName イベントの種類
+// - page_view: 画面を開いた（properties: source=流入元, referrer=参照元のホスト）
+// - page_leave: 画面を閉じた・離れた（properties: durationSec=表示していた秒数）
+// - sound_play / sound_stop: BGM・環境音を流した / 止めた（properties: soundId, durationSec）
+// - room_save: 模様替えを保存した
+// - study_session: タイマーで勉強時間を記録した（properties: minutes）
+// - theme_change: テーマを変えた（properties: theme）
+// - signup / login / account_delete: 新規登録 / ログイン / 退会
+// - client_error: 画面でエラーが起きた（properties: message）
+//
+// Example: page_view
+type AnalyticsEventName string
 
 // Avatar 部屋にいる住人（girl=女の子, boy=男の子）
 //
@@ -395,14 +568,48 @@ type User struct {
 // Example: meadow
 type Wallpaper string
 
+// AnalyticsFrom ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+//
+// Example: 2026-10-12
+type AnalyticsFrom = LocalDate
+
+// AnalyticsTo ユーザーのタイムゾーンでの日付（YYYY-MM-DD）
+//
+// Example: 2026-10-12
+type AnalyticsTo = LocalDate
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
 
 // TooManyRequests defines model for TooManyRequests.
 type TooManyRequests = Error
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
+
+// GetAnalyticsDailyParams defines parameters for GetAnalyticsDaily.
+type GetAnalyticsDailyParams struct {
+	// From 集計する期間の開始日（日本時間、この日を含む）
+	From AnalyticsFrom `form:"from" json:"from"`
+
+	// To 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日
+	To AnalyticsTo `form:"to" json:"to"`
+}
+
+// ExportAnalyticsEventsParams defines parameters for ExportAnalyticsEvents.
+type ExportAnalyticsEventsParams struct {
+	// From 集計する期間の開始日（日本時間、この日を含む）
+	From AnalyticsFrom `form:"from" json:"from"`
+
+	// To 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日
+	To AnalyticsTo `form:"to" json:"to"`
+}
+
+// RecordAnalyticsEventsJSONRequestBody defines body for RecordAnalyticsEvents for application/json ContentType.
+type RecordAnalyticsEventsJSONRequestBody = AnalyticsEventBatch
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
@@ -427,6 +634,15 @@ type UpdateStudySettingsJSONRequestBody = StudySettings
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetAnalyticsDaily 日別の集計（管理者のみ）
+	// (GET /admin/analytics/daily)
+	GetAnalyticsDaily(c *gin.Context, params GetAnalyticsDailyParams)
+	// ExportAnalyticsEvents 生ログの書き出し（管理者のみ）
+	// (GET /admin/analytics/export)
+	ExportAnalyticsEvents(c *gin.Context, params ExportAnalyticsEventsParams)
+	// RecordAnalyticsEvents 利用状況のイベントを記録
+	// (POST /analytics/events)
+	RecordAnalyticsEvents(c *gin.Context)
 	// Login ログイン
 	// (POST /auth/login)
 	Login(c *gin.Context)
@@ -473,6 +689,89 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// GetAnalyticsDaily operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsDaily(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsDailyParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAnalyticsDaily(c, params)
+}
+
+// ExportAnalyticsEvents operation middleware
+func (siw *ServerInterfaceWrapper) ExportAnalyticsEvents(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportAnalyticsEventsParams
+
+	// ------------- Required query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "from", c.Request.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter from: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "to", c.Request.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter to: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ExportAnalyticsEvents(c, params)
+}
+
+// RecordAnalyticsEvents operation middleware
+func (siw *ServerInterfaceWrapper) RecordAnalyticsEvents(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RecordAnalyticsEvents(c)
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(c *gin.Context) {
@@ -669,4 +968,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/me/study/sessions", wrapper.AddStudySession)
 	router.PUT(options.BaseURL+"/me/study/settings", wrapper.UpdateStudySettings)
 	router.PUT(options.BaseURL+"/me/study/goals", wrapper.UpdateStudyGoals)
+	router.POST(options.BaseURL+"/analytics/events", wrapper.RecordAnalyticsEvents)
+	router.GET(options.BaseURL+"/admin/analytics/daily", wrapper.GetAnalyticsDaily)
+	router.GET(options.BaseURL+"/admin/analytics/export", wrapper.ExportAnalyticsEvents)
 }

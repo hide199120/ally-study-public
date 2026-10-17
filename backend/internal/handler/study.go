@@ -55,7 +55,7 @@ func (s *Server) AddStudySession(c *gin.Context) {
 	}
 
 	day, err := s.Study.AddSession(c.Request.Context(), user.ID, model.StudySession{Date: req.Date, Minutes: req.Minutes, Mode: string(req.Mode)})
-	if s.handleStudyError(c, "add study session", err) {
+	if s.handleServiceError(c, "add study session", err) {
 		return
 	}
 	c.JSON(http.StatusCreated, api.StudyDay{Date: day.Date, Minutes: day.Minutes})
@@ -75,7 +75,7 @@ func (s *Server) UpdateStudySettings(c *gin.Context) {
 	}
 
 	err := s.Study.UpdateWeeklyGoal(c.Request.Context(), user.ID, req.WeeklyGoalMinutes)
-	if s.handleStudyError(c, "update study settings", err) {
+	if s.handleServiceError(c, "update study settings", err) {
 		return
 	}
 	c.JSON(http.StatusOK, api.StudySettings{WeeklyGoalMinutes: req.WeeklyGoalMinutes})
@@ -103,15 +103,15 @@ func (s *Server) UpdateStudyGoals(c *gin.Context) {
 	}
 
 	saved, err := s.Study.UpdateGoals(c.Request.Context(), user.ID, goals)
-	if s.handleStudyError(c, "update study goals", err) {
+	if s.handleServiceError(c, "update study goals", err) {
 		return
 	}
 	c.JSON(http.StatusOK, api.StudyGoals{Goals: toAPIGoals(saved)})
 }
 
-// handleStudyError はエラーがあればレスポンスを返して true を返す。
+// handleServiceError はエラーがあればレスポンスを返して true を返す。
 // 入力内容のエラーは 400、それ以外は 500 にする。
-func (s *Server) handleStudyError(c *gin.Context, op string, err error) bool {
+func (s *Server) handleServiceError(c *gin.Context, op string, err error) bool {
 	if err == nil {
 		return false
 	}

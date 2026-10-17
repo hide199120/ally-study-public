@@ -11,6 +11,12 @@ import (
 type Config struct {
 	Port string
 	DB   DBConfig
+	// AnalyticsDB はアクセス解析のイベントを保存する DB。
+	// 本番では本体と別のインスタンスにして、解析で無料枠を使い切っても本体が止まらないようにする。
+	// ANALYTICS_DB_* を設定しなければ、本体と同じ DB を使う（ローカル開発用）
+	AnalyticsDB DBConfig
+	// AdminUserIDs は管理者のユーザーID（カンマ区切り）。解析の集計・書き出しの API を使える
+	AdminUserIDs []int64
 	// CookieSecure を true にすると、セッションCookieに Secure 属性を付け、HSTS ヘッダーも返す（本番のHTTPS環境用）
 	CookieSecure bool
 	// StaticDir にビルドしたフロントを置くと、API と同じサーバーから配る（本番用）
@@ -36,16 +42,26 @@ type DBConfig struct {
 
 // Load は環境変数から設定を読み込む。未設定の項目はローカル開発用の値になる。
 func Load() Config {
+	db := DBConfig{
+		Host:     getEnv("DB_HOST", "localhost"),
+		Port:     getEnv("DB_PORT", "3306"),
+		Name:     getEnv("DB_NAME", "ally_study"),
+		User:     getEnv("DB_USER", "ally"),
+		Password: getEnv("DB_PASSWORD", "ally_password"),
+		TLS:      getEnvBool("DB_TLS", false),
+	}
 	return Config{
 		Port: getEnv("PORT", "8080"),
-		DB: DBConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "3306"),
-			Name:     getEnv("DB_NAME", "ally_study"),
-			User:     getEnv("DB_USER", "ally"),
-			Password: getEnv("DB_PASSWORD", "ally_password"),
-			TLS:      getEnvBool("DB_TLS", false),
+		DB:   db,
+		AnalyticsDB: DBConfig{
+			Host:     getEnv("ANALYTICS_DB_HOST", db.Host),
+			Port:     getEnv("ANALYTICS_DB_PORT", db.Port),
+			Name:     getEnv("ANALYTICS_DB_NAME", db.Name),
+			User:     getEnv("ANALYTICS_DB_USER", db.User),
+			Password: getEnv("ANALYTICS_DB_PASSWORD", db.Password),
+			TLS:      getEnvBool("ANALYTICS_DB_TLS", db.TLS),
 		},
+		AdminUserIDs:   parseIDs(os.Getenv("ADMIN_USER_IDS")),
 		CookieSecure:   getEnvBool("COOKIE_SECURE", false),
 		StaticDir:      os.Getenv("STATIC_DIR"),
 		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
@@ -75,6 +91,17 @@ func splitList(v string) []string {
 	for _, s := range strings.Split(v, ",") {
 		if s = strings.TrimSpace(s); s != "" {
 			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// parseIDs はカンマ区切りの数字を ID のリストにする。数字でないものは無視する。
+func parseIDs(v string) []int64 {
+	var out []int64
+	for _, s := range splitList(v) {
+		if id, err := strconv.ParseInt(s, 10, 64); err == nil && id > 0 {
+			out = append(out, id)
 		}
 	}
 	return out

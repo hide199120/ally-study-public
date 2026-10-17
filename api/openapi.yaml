@@ -23,6 +23,8 @@ tags:
     description: 部屋の模様替え（家具の配置・バッグ・壁紙・住人）
   - name: study
     description: 学習記録（勉強時間・週の目標・資格やタスクの目標）
+  - name: analytics
+    description: アクセス解析（利用状況の記録と、管理者向けの集計）
 
 paths:
   /health:
@@ -309,6 +311,80 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /analytics/events:
+    post:
+      tags: [analytics]
+      operationId: recordAnalyticsEvents
+      summary: 利用状況のイベントを記録
+      description: |
+        画面を開いた・BGMを流したなどのイベントを、まとめて記録します。ログインしていなくても使えます。
+        ログイン中ならユーザーIDを、記録した時刻とあわせてサーバー側で付けます（送られてきた値は使わない）。
+        解析用の DB に保存するので、本体の DB の負荷や無料枠には影響しません。
+      security:
+        - {}
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnalyticsEventBatch"
+      responses:
+        "204":
+          description: 記録成功
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /admin/analytics/daily:
+    get:
+      tags: [analytics]
+      operationId: getAnalyticsDaily
+      summary: 日別の集計（管理者のみ）
+      description: |
+        期間内の、日付（日本時間）とイベントごとの件数と人数を返します。グラフの表示に使います。
+        管理者以外（ログインしていない人も含む）には、APIの存在を知られないように 404 を返します。
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsDaily"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/analytics/export:
+    get:
+      tags: [analytics]
+      operationId: exportAnalyticsEvents
+      summary: 生ログの書き出し（管理者のみ）
+      description: |
+        期間内のイベントを、1行に1件の JSON（JSON Lines）で返します。ダウンロードしてテキストエディタで読む用です。
+        管理者以外（ログインしていない人も含む）には 404 を返します。
+      parameters:
+        - $ref: "#/components/parameters/AnalyticsFrom"
+        - $ref: "#/components/parameters/AnalyticsTo"
+      responses:
+        "200":
+          description: 書き出し成功
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+              example: |
+                {"name":"page_view","anonymousId":"8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71","userId":null,"device":"pc","properties":{"source":"x"},"createdAt":"2026-10-17T08:00:00Z"}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 security:
   - sessionCookie: []
 
@@ -318,6 +394,22 @@ components:
       type: apiKey
       in: cookie
       name: session_id
+
+  parameters:
+    AnalyticsFrom:
+      name: from
+      in: query
+      required: true
+      description: 集計する期間の開始日（日本時間、この日を含む）
+      schema:
+        $ref: "#/components/schemas/LocalDate"
+    AnalyticsTo:
+      name: to
+      in: query
+      required: true
+      description: 集計する期間の終了日（日本時間、この日を含む）。開始日から最大92日
+      schema:
+        $ref: "#/components/schemas/LocalDate"
 
   headers:
     SetSessionCookie:
@@ -345,6 +437,15 @@ components:
           example:
             code: unauthorized
             message: ログインしてください
+    NotFound:
+      description: 見つからない（管理者向けAPIを管理者以外が呼んだときも、これを返す）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            code: not_found
+            message: 見つかりません
     TooManyRequests:
       description: 短い時間にリクエストが多すぎる（しばらく待ってから再度試す）
       headers:
@@ -620,3 +721,101 @@ components:
           maxItems: 30
           items:
             $ref: "#/components/schemas/StudyGoal"
+
+    AnalyticsEventName:
+      type: string
+      description: |
+        イベントの種類
+        - page_view: 画面を開いた（properties: source=流入元, referrer=参照元のホスト）
+        - page_leave: 画面を閉じた・離れた（properties: durationSec=表示していた秒数）
+        - sound_play / sound_stop: BGM・環境音を流した / 止めた（properties: soundId, durationSec）
+        - room_save: 模様替えを保存した
+        - study_session: タイマーで勉強時間を記録した（properties: minutes）
+        - theme_change: テーマを変えた（properties: theme）
+        - signup / login / account_delete: 新規登録 / ログイン / 退会
+        - client_error: 画面でエラーが起きた（properties: message）
+      enum:
+        - page_view
+        - page_leave
+        - sound_play
+        - sound_stop
+        - room_save
+        - study_session
+        - theme_change
+        - signup
+        - login
+        - account_delete
+        - client_error
+      example: page_view
+
+    AnalyticsDevice:
+      type: string
+      description: 端末の種類
+      enum: [pc, mobile]
+      example: pc
+
+    AnalyticsEventInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          $ref: "#/components/schemas/AnalyticsEventName"
+        properties:
+          type: object
+          description: イベントごとの追加情報（JSON にして 1KB まで）
+          additionalProperties: true
+          example:
+            source: x
+
+    AnalyticsEventBatch:
+      type: object
+      required: [anonymousId, device, events]
+      properties:
+        anonymousId:
+          type: string
+          description: ブラウザごとの匿名ID（ログインしていなくても、同じ人の再訪を数えるため）。UUID の形式
+          pattern: "^[0-9a-f-]{36}$"
+          example: 8f14e45f-ceea-467e-a2b3-0e5d1c3a9b71
+        device:
+          $ref: "#/components/schemas/AnalyticsDevice"
+        events:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            $ref: "#/components/schemas/AnalyticsEventInput"
+
+    AnalyticsDailyRow:
+      type: object
+      required: [date, name, events, visitors, durationSec]
+      properties:
+        date:
+          $ref: "#/components/schemas/LocalDate"
+        name:
+          $ref: "#/components/schemas/AnalyticsEventName"
+        events:
+          type: integer
+          description: イベントの件数
+          example: 42
+        visitors:
+          type: integer
+          description: そのイベントがあった人数（匿名IDの数）
+          example: 17
+        durationSec:
+          type: integer
+          description: properties.durationSec の合計（page_leave なら滞在時間、sound_stop なら再生時間の合計。秒）
+          example: 5400
+
+    AnalyticsDaily:
+      type: object
+      required: [from, to, rows]
+      properties:
+        from:
+          $ref: "#/components/schemas/LocalDate"
+        to:
+          $ref: "#/components/schemas/LocalDate"
+        rows:
+          type: array
+          description: 日付・イベントごとの集計（日付の古い順）。件数が 0 の日は含まない
+          items:
+            $ref: "#/components/schemas/AnalyticsDailyRow"
