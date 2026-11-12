@@ -16,6 +16,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatal(err)
+	}
 	ctx := context.Background()
 
 	conn, err := database.Open(ctx, cfg.DB)

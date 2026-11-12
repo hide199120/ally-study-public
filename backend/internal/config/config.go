@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -27,7 +28,12 @@ type Config struct {
 	ClientIPHeader string
 	// RunMigrations を true にすると、起動時にマイグレーションを適用する（本番用）
 	RunMigrations bool
+	// Release は本番（GIN_MODE=release）かどうか。本番では、危険な設定のまま起動しないように Validate で確認する
+	Release bool
 }
+
+// devDBPassword は、DB_PASSWORD を設定しなかったときに使う開発用のパスワード（docker-compose.yml の初期値と同じ）。
+const devDBPassword = "ally_password"
 
 // DBConfig はMySQLへの接続設定。
 type DBConfig struct {
@@ -47,7 +53,7 @@ func Load() Config {
 		Port:     getEnv("DB_PORT", "3306"),
 		Name:     getEnv("DB_NAME", "ally_study"),
 		User:     getEnv("DB_USER", "ally"),
-		Password: getEnv("DB_PASSWORD", "ally_password"),
+		Password: getEnv("DB_PASSWORD", devDBPassword),
 		TLS:      getEnvBool("DB_TLS", false),
 	}
 	return Config{
@@ -67,7 +73,23 @@ func Load() Config {
 		TrustedProxies: splitList(os.Getenv("TRUSTED_PROXIES")),
 		ClientIPHeader: os.Getenv("CLIENT_IP_HEADER"),
 		RunMigrations:  getEnvBool("RUN_MIGRATIONS", false),
+		Release:        os.Getenv("GIN_MODE") == "release",
 	}
+}
+
+// Validate は、本番で危険な設定のまま起動しないように確認する。
+// 本番では DB のパスワードを必ず設定する（未設定のまま、開発用の初期値で DB につながってしまうのを防ぐ）。
+func (c Config) Validate() error {
+	if !c.Release {
+		return nil
+	}
+	if c.DB.Password == devDBPassword {
+		return errors.New("DB_PASSWORD が未設定（開発用の初期値のまま）です。本番では必ず設定してください")
+	}
+	if c.AnalyticsDB.Password == devDBPassword {
+		return errors.New("ANALYTICS_DB_PASSWORD が開発用の初期値のままです。本番では必ず設定してください")
+	}
+	return nil
 }
 
 func getEnv(key, fallback string) string {

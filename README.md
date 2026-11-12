@@ -28,6 +28,7 @@
 | 勉強タイマー | ポモドーロ / ストップウォッチで勉強時間を記録 |
 | 学習記録 | 1 週間の勉強時間のグラフ、週の目標、資格・タスクの期限を表示 |
 | アカウント | ユーザー名＋パスワードで新規登録・ログイン・退会（メールアドレス不要） |
+| アクセス解析 | 画面を開いた・音を流したなどの操作を、ブラウザごとの匿名 ID で記録。管理者だけが見られる管理画面（`/admin`）で日別の集計をグラフで確認でき、生ログは JSON Lines で書き出せる |
 
 ## 技術スタック
 
@@ -62,6 +63,7 @@ flowchart LR
 - **API の型をスキーマから生成**：OpenAPI を先に書き、フロントとバックエンドで型のずれが起きないようにした
 - **セキュリティ対策**：パスワードの bcrypt ハッシュ化、Cookie の `HttpOnly` / `SameSite` / `Secure`、CSRF 対策、ログイン・新規登録の回数制限、セキュリティヘッダー（CSP など）。詳細は [docs/deploy.md](docs/deploy.md#セキュリティ対策の一覧)
 - **CI で品質を確認**：PR ごとに Lint・テスト・ビルドに加え、`npm audit` と `govulncheck` でライブラリの脆弱性もチェック
+- **個人情報を増やさない設計**：メールアドレスは集めず、アクセス解析は匿名 ID で記録。退会するとアカウントのデータをすべて削除し、解析イベントからもユーザーとの結びつきを外す
 - **音源ファイルに頼らないサウンド**：BGM や環境音をコードで生成し、複数を重ねて音量を調整できるようにした
 
 ## ディレクトリ構成
@@ -72,9 +74,10 @@ ally-study/
 ├── backend/                # Go（Gin）の API サーバー
 │   ├── cmd/server/         # エントリーポイント
 │   ├── db/migrations/      # DB のマイグレーション
+│   ├── db/analytics/       # アクセス解析用のマイグレーション
 │   └── internal/           # handler / service / repository / middleware など
 ├── frontend/               # React のフロントエンド
-│   └── src/features/       # 機能ごとのコード（auth / room / sound / study / theme）
+│   └── src/features/       # 機能ごとのコード（admin / analytics / auth / room / sound / study / theme）
 ├── docs/deploy.md          # 公開（デプロイ）の手順とセキュリティ対策
 ├── docker-compose.yml      # ローカル開発用（MySQL + マイグレーション + API）
 ├── Dockerfile              # 本番用（フロントと API を 1 つのイメージに）
