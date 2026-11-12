@@ -45,6 +45,15 @@ func (r *AnalyticsRepository) InsertEvents(ctx context.Context, events []model.A
 	return nil
 }
 
+// UnlinkUser は、そのユーザーのイベントから user_id を外す（NULL にする）。
+// イベント自体は消さず、誰のものか分からない匿名のイベントとして残す（集計の数字が変わらないように）。
+func (r *AnalyticsRepository) UnlinkUser(ctx context.Context, userID int64) error {
+	if _, err := r.DB.ExecContext(ctx, `UPDATE analytics_events SET user_id = NULL WHERE user_id = ?`, userID); err != nil {
+		return fmt.Errorf("unlink analytics_events: %w", err)
+	}
+	return nil
+}
+
 // Daily は [from, to) の期間（UTC）のイベントを、日付（日本時間）とイベント名ごとに集計する。
 // 生ログを全件返さず、DB 側で数えた結果だけを返すので、読み出す量が少なくて済む。
 func (r *AnalyticsRepository) Daily(ctx context.Context, from, to time.Time) ([]model.AnalyticsDailyRow, error) {

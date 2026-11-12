@@ -33,6 +33,7 @@ type AnalyticsStore interface {
 	InsertEvents(ctx context.Context, events []model.AnalyticsEvent) error
 	Daily(ctx context.Context, from, to time.Time) ([]model.AnalyticsDailyRow, error)
 	Export(ctx context.Context, from, to time.Time, fn func(model.AnalyticsEvent) error) error
+	UnlinkUser(ctx context.Context, userID int64) error
 }
 
 // AnalyticsService はアクセス解析（イベントの記録・日別の集計・生ログの書き出し）の処理を行う。
@@ -89,6 +90,14 @@ func (s *AnalyticsService) Record(ctx context.Context, userID *int64, batch mode
 	}
 	if err := s.store.InsertEvents(ctx, events); err != nil {
 		return fmt.Errorf("insert events: %w", err)
+	}
+	return nil
+}
+
+// UnlinkUser は、退会したユーザーのイベントからユーザーIDを外す（イベントは匿名のまま残る）。
+func (s *AnalyticsService) UnlinkUser(ctx context.Context, userID int64) error {
+	if err := s.store.UnlinkUser(ctx, userID); err != nil {
+		return fmt.Errorf("unlink user: %w", err)
 	}
 	return nil
 }

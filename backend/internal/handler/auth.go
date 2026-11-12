@@ -119,6 +119,12 @@ func (s *Server) DeleteMe(c *gin.Context) {
 		return
 	}
 
+	// 解析イベントからユーザーIDを外す。解析用の DB は別のことがあるので、ユーザーの削除と同じトランザクションにはできない。
+	// 失敗してもアカウントはもう消えているので、退会は成功として返し、ログに残す
+	if err := s.Analytics.UnlinkUser(c.Request.Context(), user.ID); err != nil {
+		log.Printf("unlink analytics user %d: %v", user.ID, err)
+	}
+
 	s.clearSessionCookie(c)
 	c.Status(http.StatusNoContent)
 }

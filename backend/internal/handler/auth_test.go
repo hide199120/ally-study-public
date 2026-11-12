@@ -245,15 +245,35 @@ func deleteJSON(s *Server, path, token, body string) *httptest.ResponseRecorder 
 func TestServer_DeleteMe(t *testing.T) {
 	t.Run("パスワードが合えば削除して Cookie を消す", func(t *testing.T) {
 		auth := &fakeAuthService{user: testUser, validToken: "valid-token"}
-		w := deleteJSON(&Server{Auth: auth}, "/api/me", "valid-token", `{"password":"password1234"}`)
+		analytics := &fakeAnalyticsService{}
+		w := deleteJSON(&Server{Auth: auth, Analytics: analytics}, "/api/me", "valid-token", `{"password":"password1234"}`)
 		if w.Code != http.StatusNoContent {
 			t.Fatalf("status = %d, want 204", w.Code)
+		}
+		if len(analytics.unlinked) != 1 || analytics.unlinked[0] != testUser.ID {
+			t.Errorf("解析イベントから外したユーザーID = %v, want [%d]", analytics.unlinked, testUser.ID)
 		}
 		if auth.deletedWith != "password1234" {
 			t.Errorf("DeleteAccount に渡したパスワード = %q", auth.deletedWith)
 		}
 		if !strings.Contains(w.Header().Get("Set-Cookie"), "Max-Age=0") {
 			t.Errorf("Cookie を消していない: %q", w.Header().Get("Set-Cookie"))
+		}
+	})
+	t.Run("解析イベントの紐づけを外せなくても、退会は成功する", func(t *testing.T) {
+		auth := &fakeAuthService{user: testUser, validToken: "valid-token"}
+		analytics := &fakeAnalyticsService{unlinkErr: errors.New("analytics db down")}
+		w := deleteJSON(&Server{Auth: auth, Analytics: analytics}, "/api/me", "valid-token", `{"password":"password1234"}`)
+		if w.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204", w.Code)
+		}
+	})
+	t.Run("パスワードが違えば、解析イベントには触らない", func(t *testing.T) {
+		auth := &fakeAuthService{user: testUser, validToken: "valid-token", deleteErr: service.ErrWrongPassword}
+		analytics := &fakeAnalyticsService{}
+		w := deleteJSON(&Server{Auth: auth, Analytics: analytics}, "/api/me", "valid-token", `{"password":"nope"}`)
+		if w.Code != http.StatusBadRequest || len(analytics.unlinked) != 0 {
+			t.Fatalf("status = %d, unlinked = %v", w.Code, analytics.unlinked)
 		}
 	})
 	t.Run("パスワードが違えば 400", func(t *testing.T) {

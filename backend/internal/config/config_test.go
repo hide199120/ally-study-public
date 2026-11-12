@@ -29,6 +29,32 @@ func TestLoad_AnalyticsDB(t *testing.T) {
 	})
 }
 
+func TestConfig_Validate(t *testing.T) {
+	tests := []struct {
+		name       string
+		ginMode    string
+		dbPassword string // 空なら未設定
+		anaPass    string // 空なら未設定（本体と同じになる）
+		wantErr    bool
+	}{
+		{"本番で DB_PASSWORD が未設定なら止める", "release", "", "", true},
+		{"本番で DB_PASSWORD が開発用の初期値と同じでも止める", "release", "ally_password", "", true},
+		{"本番で解析 DB のパスワードが開発用の初期値なら止める", "release", "real-secret", "ally_password", true},
+		{"本番で DB_PASSWORD を設定していれば起動できる", "release", "real-secret", "", false},
+		{"本番以外なら初期値のままでも起動できる", "", "", "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("GIN_MODE", tt.ginMode)
+			t.Setenv("DB_PASSWORD", tt.dbPassword)
+			t.Setenv("ANALYTICS_DB_PASSWORD", tt.anaPass)
+			if err := Load().Validate(); (err != nil) != tt.wantErr {
+				t.Errorf("Validate() = %v, wantErr = %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestParseIDs(t *testing.T) {
 	got := parseIDs(" 1, 23 ,abc,,-4,0")
 	want := []int64{1, 23}
