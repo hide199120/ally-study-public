@@ -45,6 +45,7 @@ type AnalyticsService interface {
 	Record(ctx context.Context, userID *int64, batch model.AnalyticsBatch) error
 	Daily(ctx context.Context, from, to string) ([]model.AnalyticsDailyRow, error)
 	Export(ctx context.Context, from, to string, fn func(model.AnalyticsEvent) error) error
+	UnlinkUser(ctx context.Context, userID int64) error
 }
 
 // CookieConfig はセッションCookieの設定。

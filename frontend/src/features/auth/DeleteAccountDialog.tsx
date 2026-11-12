@@ -40,6 +40,9 @@ export default function DeleteAccountDialog({ username, onClose }: { username: s
           <li>勉強の記録・週の目標・資格やタスク</li>
           <li>ログイン情報</li>
         </ul>
+        <p className="auth-dialog__privacy">
+          サービス改善のための利用状況の記録は、ユーザーとの結びつきだけが外れ、誰のものか分からない形で残ります。
+        </p>
 
         <form className="auth-form" onSubmit={onSubmit} noValidate>
           <div className="auth-form__field">

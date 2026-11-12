@@ -14,6 +14,7 @@ import (
 type fakeAnalyticsStore struct {
 	inserted []model.AnalyticsEvent
 	from, to time.Time
+	unlinked []int64
 	err      error
 }
 
@@ -29,6 +30,11 @@ func (f *fakeAnalyticsStore) Daily(_ context.Context, from, to time.Time) ([]mod
 
 func (f *fakeAnalyticsStore) Export(_ context.Context, from, to time.Time, _ func(model.AnalyticsEvent) error) error {
 	f.from, f.to = from, to
+	return f.err
+}
+
+func (f *fakeAnalyticsStore) UnlinkUser(_ context.Context, userID int64) error {
+	f.unlinked = append(f.unlinked, userID)
 	return f.err
 }
 
@@ -97,6 +103,25 @@ func TestAnalyticsService_Record(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnalyticsService_UnlinkUser(t *testing.T) {
+	t.Run("保存先に退会したユーザーのIDを渡す", func(t *testing.T) {
+		store := &fakeAnalyticsStore{}
+		if err := NewAnalyticsService(store).UnlinkUser(context.Background(), 7); err != nil {
+			t.Fatal(err)
+		}
+		if len(store.unlinked) != 1 || store.unlinked[0] != 7 {
+			t.Errorf("外したユーザーID = %v, want [7]", store.unlinked)
+		}
+	})
+
+	t.Run("保存先のエラーはそのまま返す", func(t *testing.T) {
+		boom := errors.New("db down")
+		if err := NewAnalyticsService(&fakeAnalyticsStore{err: boom}).UnlinkUser(context.Background(), 7); !errors.Is(err, boom) {
+			t.Errorf("err = %v, want %v", err, boom)
+		}
+	})
 }
 
 func TestAnalyticsService_Daily_Range(t *testing.T) {

@@ -23,6 +23,9 @@ type fakeAnalyticsService struct {
 	gotBatch  model.AnalyticsBatch
 	gotFrom   string
 	gotTo     string
+
+	unlinked  []int64 // UnlinkUser に渡されたユーザーID
+	unlinkErr error
 }
 
 func (f *fakeAnalyticsService) Record(_ context.Context, userID *int64, batch model.AnalyticsBatch) error {
@@ -53,6 +56,11 @@ func (f *fakeAnalyticsService) Export(_ context.Context, from, to string, fn fun
 		}
 	}
 	return nil
+}
+
+func (f *fakeAnalyticsService) UnlinkUser(_ context.Context, userID int64) error {
+	f.unlinked = append(f.unlinked, userID)
+	return f.unlinkErr
 }
 
 func analyticsServer(a *fakeAnalyticsService, admins ...int64) *Server {

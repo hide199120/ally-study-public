@@ -1,0 +1,1 @@
+DROP INDEX idx_analytics_events_user_id ON analytics_events;
